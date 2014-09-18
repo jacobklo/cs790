@@ -25,7 +25,7 @@ public class AnalysisTest {
 		Parser parser = getParser(context);
 		 
 		try {
-			AstRoot ast = parseFromFile("analysis/" + f, parser);
+			AstRoot ast = parseFromFile("" + f, parser);
 			Statement s = new StatementVisitor().visit(ast);
 			
 			CFG cfg = new CFG();
