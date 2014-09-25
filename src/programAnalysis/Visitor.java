@@ -1,5 +1,8 @@
 package programAnalysis;
 
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class Visitor {
 	public void visit(BlockStmt s) { }
@@ -63,9 +66,13 @@ public class Visitor {
 
 class WhileLangVisitor extends Visitor {
 
-	private void print(Statement s) { System.out.println("RR"+s.node.toSource()); }
+	private void print(Statement s) { System.out.println(s.node.toSource()); }
 	
-	public void visit(ScriptStmt s) { print(s); }
+	// don't override this method. I moved it up here so you don't have to consider this anymore.
+	public void visit(ScriptStmt s) { 
+		// treat it like a block 
+		visit((BlockStmt) s);
+	}
 	public void visit(BlockStmt s) { print(s); }
 	public void visit(EmptyStmt s) { print(s); }
 	public void visit(ExpressionStmt s) { print(s); }
@@ -88,85 +95,9 @@ class LabelVisitor extends WhileLangVisitor {
 	LabelVisitor(CFG cfg) {
 		this.cfg = cfg;
 	}
-	public void visit(ScriptStmt s) { 
-		// treat it like a block when we don't care about the entry point
-		visit((BlockStmt) s);
-	}
- 
+	 
 	// overrride visitor methods here to compute the init/final/blocks functions
-	public void visit(EmptyStmt s) { 
-		cfg.addLabel(s);
-
-		cfg.f_init.put(s, s.label);
-		cfg.f_final.put(s, new CSet<Label>(s.label));
-		cfg.f_blocks.put(s, new CSet<Statement>(s));
-				
-	}
-	public void visit(BlockStmt s) { 
-		cfg.addLabel(s);
-		
-		cfg.f_init.put(s, s.label);
-		cfg.f_final.put(s, new CSet<Label>(s.label));
-		CSet<Statement> cs = new CSet<Statement>();
-		for (Statement ss : s.statements){
-			cs.add(ss);
-		}
-		cfg.f_blocks.put(s, cs);
-		
-		for (Statement st : s.statements){
-			if (st instanceof ExpressionStmt){
-				this.visit((ExpressionStmt)st);
-			}
-			else if(st instanceof WhileStmt ){
-				this.visit((WhileStmt)st);
-			}
-			else if(st instanceof IfStmt ){
-				this.visit((IfStmt)st);
-			}
-			else if(st instanceof EmptyStmt ){
-				this.visit((EmptyStmt)st);
-			}			
-		}
-	}
-	
-	public void visit(ExpressionStmt s) { 
-		cfg.addLabel(s);
-		
-		cfg.f_init.put(s, s.label);
-		cfg.f_final.put(s, new CSet<Label>(s.label));
-		cfg.f_labels.put(s, new CSet<Label>(s.label));
-		cfg.f_blocks.put(s, new CSet<Statement>(s));
-		
-	}
-	public void visit(WhileStmt s) { 
-		cfg.addLabel(s);
-		
-		cfg.f_init.put(s, s.label);
-		cfg.f_labels.put(s, new CSet<Label>(s.label));
-		CSet<Statement> cs = new CSet<Statement>();
-		cs.add(s);
-		cs.add(s.body);
-		cfg.f_blocks.put(s, cs);
-		
-		
-	}
-	public void visit(IfStmt s) { 
-		cfg.addLabel(s);
-
-		cfg.f_init.put(s, s.label);
-		cfg.f_final.put(s, new CSet<Label>(s.label));
-		cfg.f_labels.put(s, new CSet<Label>(s.label));
-		cfg.f_blocks.put(s, new CSet<Statement>(s));
-	}
-	
-	public void visit(LoopStmt s) { 
-		cfg.addLabel(s);
-
-		cfg.f_init.put(s, s.label);
-		cfg.f_final.put(s, new CSet<Label>(s.label));
-		cfg.f_blocks.put(s, new CSet<Statement>(s));
-	}
-	
+	// let me know if you need my implementation of this visitor
 }
 
 class CFGVisitor extends WhileLangVisitor {
@@ -175,73 +106,38 @@ class CFGVisitor extends WhileLangVisitor {
 	CFGVisitor(CFG cfg) {
 		this.cfg = cfg;
 	}
-	public void visit(ScriptStmt s) { 
-		visit((BlockStmt) s);
-	}
- 
+	 
 	// override visitor methods here to build your control flow graph
-	public void visit(BlockStmt s) {
-		Label l = (Label) s.label;
-		
-		
-		cfg.f_flow.put(s, new CSet<Edge>());
-		
-		for (Statement st : s.statements){
-			if (st instanceof ExpressionStmt){
-				this.visit((ExpressionStmt)st);
-			}
-			else if(st instanceof WhileStmt ){
-				this.visit((WhileStmt)st);
-			}
-			else if(st instanceof IfStmt ){
-				this.visit((IfStmt)st);
-			}
-			else if(st instanceof EmptyStmt ){
-				this.visit((EmptyStmt)st);
-			}			
-		}
-	}
-	public void visit(EmptyStmt s) { 
-		 cfg.f_flow.put(s, new CSet<Edge>());
-	}
-	public void visit(ExpressionStmt s) { 
-		Label l = (Label) s.label;
-		CSet<Edge> cse = new CSet<Edge>();
-		if(s.labels != null){
-		Label[] r = (Label[]) s.labels.toArray();
-		
-		for (int i = 1 ; i < r.length ; i=i+2){
-			if (i==1){
-				cse.add(new Edge(l,r[0]));
-			}
-			else{
-				cse.add(new Edge(r[i],r[i+1]));
-			}
-		}
-		}
-		cfg.f_flow.put(s,cse);
-	}
-	public void visit(WhileStmt s) { 
-		
-		Label l = (Label) s.label;
-		CSet<Edge> cse = new CSet<Edge>();
-		if(s.labels != null){
-		Label[] r = (Label[]) s.labels.toArray();
-		
-		for (int i = 1 ; i < r.length ; i=i+2){
-			if (i==1){
-				cse.add(new Edge(l,r[0]));
-			}
-			else{
-				cse.add(new Edge(r[i],r[i+1]));
-			}
-		}
-		}
-		cfg.f_flow.put(s,cse);
-	}
-	public void visit(IfStmt s) {
-		
-		cfg.f_flow.put(s, new CSet<Edge>());
-	}
+	// let me know if you need my implementation of this visitor
 }
 
+class AExp_F_Visitor extends WhileLangVisitor {
+	Map<Expression, CSet<Expression>> aexp ;
+	Map<Expression, CSet<String>> fv ;
+	Map<Label, CSet<Expression>> kill = new HashMap<Label, CSet<Expression>>(), 
+			gen = new HashMap<Label, CSet<Expression>>();
+	
+	// bottom of the lattice
+	CSet<Expression> aexpStar = new CSet<Expression>();
+	
+	AExp_F_Visitor(Map<Expression, CSet<Expression>> aexp, Map<Expression, CSet<String>> fv ) {
+		this.aexp = aexp;
+		this.fv = fv;
+		
+		for (CSet<Expression> set : aexp.values()) aexpStar.addAll(set);
+	}
+	
+	// override the visit methods for the while/if/empty/block/expression statements 
+	// to calculate the kill and gen sets for each label
+	 
+}
+
+class AExpVisitor extends WhileLangVisitor {
+	Map<Expression, CSet<Expression>> aexp = new HashMap<Expression, CSet<Expression>>();
+	Map<Expression, CSet<String>> fv = new HashMap<Expression, CSet<String>>();
+	
+ 
+   // override the visit methods for the five statements and all expressions in WhileLangVisitor
+   // to collect all arithmethic expressions in aexp
+   // and collect all free variables of each expression in fv.
+}
