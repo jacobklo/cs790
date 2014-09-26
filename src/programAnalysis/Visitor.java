@@ -332,6 +332,7 @@ class AExpVisitor extends WhileLangVisitor {
 		csexp.addAll(aexp.get(e.lValue));
 		csexp.addAll(aexp.get(e.rValue));
 		aexp.put(e, csexp);
+		fv.put(e, new CSet<String>().addAll(fv.get(e.lValue)).addAll(fv.get(e.rValue)));
 	}
 
 	public void visit(VarAccessExpr e) {
@@ -353,6 +354,7 @@ class AExpVisitor extends WhileLangVisitor {
 		csexp.addAll(aexp.get(e.left));
 		csexp.addAll(aexp.get(e.right));
 		aexp.put(e, csexp);
+		fv.put(e, new CSet<String>().addAll(fv.get(e.left)).addAll(fv.get(e.right)));
 	}
 
 	public void visit(NumericExpr e) {
@@ -362,6 +364,7 @@ class AExpVisitor extends WhileLangVisitor {
 		csexp.addAll(aexp.get(e.left));
 		csexp.addAll(aexp.get(e.right));
 		aexp.put(e, csexp);
+		fv.put(e, new CSet<String>().addAll(fv.get(e.left)).addAll(fv.get(e.right)));
 	}
 
 	public void visit(BoolExpr e) {
@@ -377,6 +380,7 @@ class AExpVisitor extends WhileLangVisitor {
 		csexp.addAll(aexp.get(e.left));
 		csexp.addAll(aexp.get(e.right));
 		aexp.put(e, csexp);
+		fv.put(e, new CSet<String>().addAll(fv.get(e.left)).addAll(fv.get(e.right)));
 	}
 
 	public void visit(ComparisonExpr e) {
@@ -386,11 +390,13 @@ class AExpVisitor extends WhileLangVisitor {
 		csexp.addAll(aexp.get(e.left));
 		csexp.addAll(aexp.get(e.right));
 		aexp.put(e, csexp);
+		fv.put(e, new CSet<String>().addAll(fv.get(e.left)).addAll(fv.get(e.right)));
 	}
 
 	public void visit(NegationExpr e) {
 		e.operand.accept(this);
 	    aexp.put(e, new CSet<Expression>().addAll( aexp.get(e.operand)) );
+	    fv.put(e, new CSet<String>().addAll(fv.get(e.operand)));
 	}
  
 }
