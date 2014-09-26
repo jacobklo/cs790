@@ -83,13 +83,22 @@ class AvailableExpression extends DFA<Expression> {
  
 	// implement the following two hook methods: just one line for each method
 	CSet<Expression> lub(CSet<Expression> analysis, CSet<Expression> update) {
-		return null;
+		return analysis.intersect(update);
 	}
 	boolean lessThan(CSet<Expression> update, CSet<Expression> analysis) {
-		return true;
+		return analysis.containsAll(update);
 	}
 	
 	AvailableExpression(Statement entry) {
 		// assign values to the fields inherited from DFA class
+		this.extremal_labels = new CSet<Label>();
+		this.flow = new CSet<Edge>();
+		this.extremal_value = new CSet<Expression>();		
+		this.bottom = new CSet<Expression>();				
+		
+		this.kill = new Map<Label, CSet<Expression>>();	
+		this.gen = new Map<Label, CSet<Expression>>();
 	}
+	
+	
 }
