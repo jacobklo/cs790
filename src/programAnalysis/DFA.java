@@ -3,6 +3,7 @@ package programAnalysis;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 
 
 public abstract class DFA<L> {
@@ -10,16 +11,13 @@ public abstract class DFA<L> {
 	CSet<Label> extremal_labels;	// E
 	CSet<Edge> flow;				// F
 	
-	// the least upper bound operator
-	// @Return the lub of analysis and update, where lub can be intersection or union
+	// @Return analysis lub update, where lub can be intersection or union
 	abstract CSet<L> lub(CSet<L> analysis, CSet<L> update);
-	
-	// the partial order 
-	// @Return true iff update lessThan analysis, where lessThan can be subseteq or supseteq
+	// @Return true iff update <= analysis, where <= can be subseteq or supseteq
 	abstract boolean lessThan(CSet<L> update, CSet<L> analysis);
 	
-	CSet<L> extremal_value;		// iota 
-	CSet<L> bottom;				// bot
+	CSet<L> extremal_value;			// iota 
+	CSet<L> bottom;					// bot
 	
 	Map<Label, CSet<L>> kill;	// kill
 	Map<Label, CSet<L>> gen;	// gen
@@ -72,33 +70,38 @@ public abstract class DFA<L> {
 		}
 	}
 	
-	void worklistAlgorithm() { }
+	void worklistAlgorithm() {
+	}
 	
 	Map<Label, CSet<L>> mfp_entry = new HashMap<Label, CSet<L>>(), 
-						mfp_exit = new HashMap<Label, CSet<L>>();
+			mfp_exit = new HashMap<Label, CSet<L>>();
 }
 
 
 class AvailableExpression extends DFA<Expression> {
  
-	// implement the following two hook methods: just one line for each method
 	CSet<Expression> lub(CSet<Expression> analysis, CSet<Expression> update) {
 		return analysis.intersect(update);
 	}
 	boolean lessThan(CSet<Expression> update, CSet<Expression> analysis) {
-		return analysis.containsAll(update);
+		return update.containsAll(analysis);
 	}
 	
 	AvailableExpression(Statement entry) {
-		// assign values to the fields inherited from DFA class
-		this.extremal_labels = new CSet<Label>();
-		this.flow = new CSet<Edge>();
-		this.extremal_value = new CSet<Expression>();		
-		this.bottom = new CSet<Expression>();				
+		CFG cfg = new CFG();
+		entry.accept(new LabelVisitor(cfg));
+		entry.accept(new CFGVisitor(cfg));
 		
-		this.kill = new Map<Label, CSet<Expression>>();	
-		this.gen = new Map<Label, CSet<Expression>>();
+		AExpVisitor aexpv = new AExpVisitor();
+		entry.accept(aexpv);
+		AExp_F_Visitor aexpfv = new AExp_F_Visitor(aexpv.aexp, aexpv.fv);
+		entry.accept(aexpfv);
+		
+		this.flow = cfg.f_flow.get(entry);
+		this.bottom = aexpfv.aexpStar;
+		this.gen = aexpfv.gen;
+		this.kill = aexpfv.kill;
+		this.extremal_labels = new CSet<Label>(cfg.f_init.get(entry));
+		this.extremal_value = new CSet<Expression>();
 	}
-	
-	
 }
