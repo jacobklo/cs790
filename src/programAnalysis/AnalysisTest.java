@@ -61,7 +61,7 @@ public class AnalysisTest {
 	@Test
 	public void testAexpAnalysis() {
  
-		String f = "cfg/while2.js";
+		/*String f = "cfg/while2.js";
 		
 		Context context = Context.enter();
 		Parser parser = getParser(context);
@@ -87,7 +87,37 @@ public class AnalysisTest {
 		}
 		finally {
 			Context.exit(); // Exit from the context.
+		}*/
+		
+		String f = "cfg/while2.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		try {
+			AstRoot ast = parseFromFile("" + f, parser); 
+			Statement s = new StatementVisitor().visit(ast);
+		
+			AvailableExpression ae = new AvailableExpression(s);
+			ae.worklistAlgorithm();
+			
+			System.out.println("==== entry ====");
+			for(Label l : ae.mfp_entry.keySet()) {
+				System.out.println(l + " : " + ae.mfp_entry.get(l));
+			}
+			
+			System.out.println("==== exit ====");
+			for(Label l : ae.mfp_exit.keySet()) {
+				System.out.println(l + " : " + ae.mfp_exit.get(l));
+			}
+			
+		} catch(IOException e) {
+			System.out.println(e);
 		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+		
+		
 	}
 	@Test
 	public void testFile() {
@@ -121,6 +151,8 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
+	
+	
 	
 	public static AstRoot parseFromFile(String fileName, Parser parser) throws IOException { 
 		File file = new File(fileName);

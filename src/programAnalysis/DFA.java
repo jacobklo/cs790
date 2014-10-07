@@ -1,5 +1,6 @@
 package programAnalysis;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -69,8 +70,57 @@ public abstract class DFA<L> {
 			analysis_1.putAll(analysis_1_new);
 		}
 	}
-	
+	/**
+	 * @param(L=Complete Lattice, Fx = space of functions, F = finite flow, 
+	 * E = Extremal labels, i = extremal value, f = mapping)
+	 * @return MFP1, MFP2
+	 * 
+	 * 
+	 */
 	void worklistAlgorithm() {
+		//Step 1
+		ArrayList<Edge> W = new ArrayList<Edge>();
+		Map<Label, CSet<L>> analysis_new = new HashMap<Label, CSet<L>>();
+
+		for ( Edge e : flow){
+			W.add(e);
+		}
+		
+		CSet<Label> tmp = new CSet<Label>();
+		for ( Edge e : flow){
+			tmp.add(e.left);
+		}
+		for ( Label l : extremal_labels.union(tmp)){
+			if (extremal_labels.contains(l)){
+				analysis_new.put(l, extremal_value);
+			}
+			else{
+				analysis_new.put(l, bottom);
+			}
+		}
+		
+		// Step 2
+		while (!W.isEmpty()){
+			Label l1 = W.get(0).left;
+			Label l2 = W.get(0).right;
+			
+			W.remove(0);
+			
+			if ( !lessThan(analysis_new.get(l1),analysis_new.get(l2))){
+				analysis_new.put(l2, f(l1,analysis_new.get(l1)));
+				for ( Edge e : flow){
+					if (e.left.equals(l2)){
+						W.add(e);
+					}
+				}
+			}
+		}
+		
+		//Step 3
+		for ( Label l : extremal_labels.union(tmp)){
+			mfp_entry.put(l, analysis_new.get(l));
+			mfp_exit.put(l, f(l,analysis_new.get(l)));
+		}
 	}
 	
 	Map<Label, CSet<L>> mfp_entry = new HashMap<Label, CSet<L>>(), 
