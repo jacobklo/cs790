@@ -1,6 +1,5 @@
 package programAnalysis;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -27,6 +26,25 @@ public abstract class DFA<L> {
 		return l.subtract(kill.get(ell)).union(gen.get(ell));
 	}
 	
+//	CSet<L> exit(Label ell, CSet<L> l) {
+//		return f(ell, l);
+//	}
+//	CSet<L> entry(Label ell, Map<Label, CSet<L>> analysis) {
+//		CSet<L> out = bottom;
+//		
+//		if (extremal_labels.contains(ell)) {
+//			out = extremal_value;
+//		}
+//		
+//		for(Edge e : flow) {
+//			if (e.right == ell) {
+//				out = lub(out, analysis.get(e.left));
+//			}
+//		}
+//		return out;
+//	}
+	
+
 	Map<Label, CSet<L>> analysis_0 = new HashMap<Label, CSet<L>>(),
 						analysis_1 = new HashMap<Label, CSet<L>>();
 	
@@ -70,56 +88,33 @@ public abstract class DFA<L> {
 			analysis_1.putAll(analysis_1_new);
 		}
 	}
-	/**
-	 * @param(L=Complete Lattice, Fx = space of functions, F = finite flow, 
-	 * E = Extremal labels, i = extremal value, f = mapping)
-	 * @return MFP1, MFP2
-	 * 
-	 * 
-	 */
+	
 	void worklistAlgorithm() {
-		//Step 1
-		ArrayList<Edge> W = new ArrayList<Edge>();
-		Map<Label, CSet<L>> analysis_new = new HashMap<Label, CSet<L>>();
-
-		for ( Edge e : flow){
-			W.add(e);
+		Stack<Edge> w = new Stack<Edge>();
+		for(Edge e : flow) w.push(e);
+		
+		Map<Label, CSet<L>> analysis = new HashMap<Label, CSet<L>>();
+		for(Label l : kill.keySet()) {
+			if (extremal_labels.contains(l)) analysis.put(l, extremal_value);
+			else analysis.put(l, bottom);
 		}
 		
-		CSet<Label> tmp = new CSet<Label>();
-		for ( Edge e : flow){
-			tmp.add(e.left);
-		}
-		for ( Label l : extremal_labels.union(tmp)){
-			if (extremal_labels.contains(l)){
-				analysis_new.put(l, extremal_value);
-			}
-			else{
-				analysis_new.put(l, bottom);
-			}
-		}
-		
-		// Step 2
-		while (!W.isEmpty()){
-			Label l1 = W.get(0).left;
-			Label l2 = W.get(0).right;
-			
-			W.remove(0);
-			
-			if ( !lessThan(analysis_new.get(l1),analysis_new.get(l2))){
-				analysis_new.put(l2, f(l1,analysis_new.get(l1)));
-				for ( Edge e : flow){
-					if (e.left.equals(l2)){
-						W.add(e);
-					}
+		while(!w.isEmpty()) {
+			Edge e = w.pop();
+			Label l = e.left, l1 = e.right;
+			CSet<L> update = f(l, analysis.get(l));
+			CSet<L> old = analysis.get(l1);
+			if (! lessThan(update, old)) {
+				analysis.put(l1, lub(old, update));
+				for(Edge e1 : flow) {
+					if (e1.left == l1) w.push(e1); 
 				}
 			}
 		}
 		
-		//Step 3
-		for ( Label l : extremal_labels.union(tmp)){
-			mfp_entry.put(l, analysis_new.get(l));
-			mfp_exit.put(l, f(l,analysis_new.get(l)));
+		for(Label l : kill.keySet()) {
+			mfp_entry.put(l, analysis.get(l));
+			mfp_exit.put(l, f(l, analysis.get(l)));
 		}
 	}
 	
@@ -128,30 +123,3 @@ public abstract class DFA<L> {
 }
 
 
-class AvailableExpression extends DFA<Expression> {
- 
-	CSet<Expression> lub(CSet<Expression> analysis, CSet<Expression> update) {
-		return analysis.intersect(update);
-	}
-	boolean lessThan(CSet<Expression> update, CSet<Expression> analysis) {
-		return update.containsAll(analysis);
-	}
-	
-	AvailableExpression(Statement entry) {
-		CFG cfg = new CFG();
-		entry.accept(new LabelVisitor(cfg));
-		entry.accept(new CFGVisitor(cfg));
-		
-		AExpVisitor aexpv = new AExpVisitor();
-		entry.accept(aexpv);
-		AExp_F_Visitor aexpfv = new AExp_F_Visitor(aexpv.aexp, aexpv.fv);
-		entry.accept(aexpfv);
-		
-		this.flow = cfg.f_flow.get(entry);
-		this.bottom = aexpfv.aexpStar;
-		this.gen = aexpfv.gen;
-		this.kill = aexpfv.kill;
-		this.extremal_labels = new CSet<Label>(cfg.f_init.get(entry));
-		this.extremal_value = new CSet<Expression>();
-	}
-}

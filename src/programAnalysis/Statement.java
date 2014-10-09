@@ -5,10 +5,15 @@ import java.util.Set;
 
 import org.mozilla.javascript.ast.AstNode; 
 
-
 abstract class Statement {
 	Label label;
 	void setLabel(Label label) { this.label = label; }
+	boolean hasLabel() { return label !=null; }
+	
+	// for function call (l_r) and function declaration (l_x)
+	Label label2;
+	void setLabel2(Label label2) { this.label2 = label2; }
+	boolean hasLabel2() { return label2 != null; }
 	
 	AstNode node;
 	void setAstNode(AstNode node) { this.node = node; }
@@ -131,6 +136,10 @@ class BlockStmt extends Statement {
 	
 	BlockStmt (List<Statement> stmts) {
 		this.statements = stmts;
+		
+		// insert an empty statement if the block is empty -- 
+		// to avoid covering the corner case for the analysis algorithms
+		if (stmts.size() == 0)	stmts.add(new EmptyStmt());
 	}
 	
 	int getNumStmts() { return statements.size(); }

@@ -1,6 +1,5 @@
 package programAnalysis;
 
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -13,9 +12,71 @@ import org.mozilla.javascript.ErrorReporter;
 import org.mozilla.javascript.Parser;
 import org.mozilla.javascript.ast.AstRoot;
 
-
 public class AnalysisTest {
+	public static Parser getParser(Context context) {
+		CompilerEnvirons compilerEnv = new CompilerEnvirons();
+		compilerEnv.initFromContext(context);
+		compilerEnv.setRecordingComments(true);
+		ErrorReporter compilationErrorReporter = compilerEnv.getErrorReporter();
+		Parser p = new Parser(compilerEnv, compilationErrorReporter);    
+		return p;
+	}
+	public static AstRoot parseFromFile(String fileName, Parser parser) throws IOException { 
+		File file = new File(fileName);
+		Reader reader = new FileReader(file); 
 
+		String sourceURI; 
+		try { 
+			sourceURI = file.getCanonicalPath(); 
+		} catch (IOException e) { 
+			sourceURI = file.toString(); 
+		} 
+		AstRoot scriptOrFnNode = parser.parse(reader, sourceURI, 1); 
+		return scriptOrFnNode; 
+	} 
+	
+	public static String projPath = "analysis/";
+	
+	@Test
+	public void testFile() {
+ 
+		String f = "cfg/fib.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+//			s.accept(new WhileLangVisitor());
+			
+			CFG cfg = new CFG();
+			s.accept(new LabelVisitor(cfg));
+			cfg.setLabels();
+			
+			s.accept(new CFGVisitor(cfg));
+//			cfg.setReverseFlow();
+			
+			System.out.println(cfg.print());
+			
+			String ret = "\n=============\n\n";
+			ret += cfg.f_flow.get(s);
+			
+			ret += "\n=============\n\n";
+			
+			ret += cfg.interflow;
+			
+			System.out.println(ret);
+			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
+	
 	@Test
 	public void testAexp() {
  
@@ -25,7 +86,7 @@ public class AnalysisTest {
 		Parser parser = getParser(context);
 		 
 		try {
-			AstRoot ast = parseFromFile("" + f, parser);
+			AstRoot ast = parseFromFile(projPath + f, parser);
 			Statement s = new StatementVisitor().visit(ast);
 			
  
@@ -56,18 +117,49 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-
 	
 	@Test
 	public void testAexpAnalysis() {
  
-		/*String f = "cfg/while2.js";
+		String f = "cfg/while2.js";
 		
 		Context context = Context.enter();
 		Parser parser = getParser(context);
 		 
 		try {
-			AstRoot ast = parseFromFile("" + f, parser);
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+			AvailableExpression ae = new AvailableExpression(s);
+			ae.worklistAlgorithm();
+			
+			System.out.println("==== entry ====");
+			for(Label l : ae.mfp_entry.keySet()) {
+				System.out.println(l + " : " + ae.mfp_entry.get(l));
+			}
+			System.out.println("==== exit ====");
+			for(Label l : ae.mfp_exit.keySet()) {
+				System.out.println(l + " : " + ae.mfp_exit.get(l));
+			}
+			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
+	
+	@Test
+	public void testAexpAnalysis2() {
+ 
+		String f = "cfg/while2.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
 			Statement s = new StatementVisitor().visit(ast);
 			
 			AvailableExpression ae = new AvailableExpression(s);
@@ -87,93 +179,6 @@ public class AnalysisTest {
 		}
 		finally {
 			Context.exit(); // Exit from the context.
-		}*/
-		
-		String f = "cfg/while2.js";
-		
-		Context context = Context.enter();
-		Parser parser = getParser(context);
-		try {
-			AstRoot ast = parseFromFile("" + f, parser); 
-			Statement s = new StatementVisitor().visit(ast);
-		
-			AvailableExpression ae = new AvailableExpression(s);
-			ae.worklistAlgorithm();
-			
-			System.out.println("==== entry ====");
-			for(Label l : ae.mfp_entry.keySet()) {
-				System.out.println(l + " : " + ae.mfp_entry.get(l));
-			}
-			
-			System.out.println("==== exit ====");
-			for(Label l : ae.mfp_exit.keySet()) {
-				System.out.println(l + " : " + ae.mfp_exit.get(l));
-			}
-			
-		} catch(IOException e) {
-			System.out.println(e);
 		}
-		finally {
-			Context.exit(); // Exit from the context.
-		}
-		
-		
-	}
-	@Test
-	public void testFile() {
- 
-		String f = "cfg/while.js";
-		
-		Context context = Context.enter();
-		Parser parser = getParser(context);
-		 
-		try {
-			AstRoot ast = parseFromFile("" + f, parser);
-			Statement s = new StatementVisitor().visit(ast);
-			
-			CFG cfg = new CFG();
-			s.accept(new LabelVisitor(cfg));
-			cfg.setLabels();
-			
-			s.accept(new CFGVisitor(cfg));
-			cfg.setReverseFlow();
-			
-			System.out.println(cfg.print());
-			
-			String ret = "\n=============\n\n";
-			ret += cfg.f_flow.get(s);
-			System.out.println(ret);
-			
-		} catch(IOException e) {
-			System.out.println(e);
-		}
-		finally {
-			Context.exit(); // Exit from the context.
-		}
-	}
-	
-	
-	
-	public static AstRoot parseFromFile(String fileName, Parser parser) throws IOException { 
-		File file = new File(fileName);
-		Reader reader = new FileReader(file); 
-
-		String sourceURI; 
-		try { 
-			sourceURI = file.getCanonicalPath(); 
-		} catch (IOException e) { 
-			sourceURI = file.toString(); 
-		} 
-		AstRoot scriptOrFnNode = parser.parse(reader, sourceURI, 1); 
-		return scriptOrFnNode; 
-	} 
-
-	public static Parser getParser(Context context) {
-		CompilerEnvirons compilerEnv = new CompilerEnvirons();
-		compilerEnv.initFromContext(context);
-		compilerEnv.setRecordingComments(true);
-		ErrorReporter compilationErrorReporter = compilerEnv.getErrorReporter();
-		Parser p = new Parser(compilerEnv, compilationErrorReporter);    
-		return p;
 	}
 }
