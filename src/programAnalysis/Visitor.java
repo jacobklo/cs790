@@ -117,13 +117,15 @@ class LabelVisitor extends WhileLangVisitor {
 		cfg.addLabel(s);
 		cfg.addLabel2(s);
 		cfg.f_init.put(s, s.label);
-		cfg.f_final.put(s, new CSet<Label>(s.label2));
+		cfg.f_final.put(s, new CSet<Label>(s.label));
 		s.function.body.accept(this);
 		cfg.f_blocks.put(s, cfg.f_blocks.get(s.function.body));
 	}
 	public void visit(VarDecStmt s) { 
 		cfg.addLabel(s);
-		
+		if ( s.hasInitializer()){
+			cfg.addLabel2(s);
+		}
 		cfg.varDecs.put(s, new CSet<VarDecStmt>(s));
 		cfg.f_init.put(s, s.label);
 		cfg.f_final.put(s, new CSet<Label>(s.label2));
@@ -131,7 +133,6 @@ class LabelVisitor extends WhileLangVisitor {
 	}
 	public void visit(ReturnStmt s) { 
 		 cfg.addLabel(s);
-		 s.expr.accept(this);
 		 cfg.returns.put(s, new CSet<ReturnStmt>(s));
 		 cfg.f_init.put(s, s.label);
 		 cfg.f_final.put(s, new CSet<Label>(s.label));
@@ -162,13 +163,14 @@ class LabelVisitor extends WhileLangVisitor {
 	}
 	public void visit(ExpressionStmt s) {
 		cfg.addLabel(s);
-		cfg.addLabel2(s);
-		s.expr.accept(this);
+		if (isFunctionCall(s)){
+			cfg.addLabel2(s);
+			cfg.f_init.put(s, s.label2);
+		}
         cfg.f_init.put(s, s.label);
-        cfg.f_init.put(s, s.label2);
-        s.expr.
         cfg.f_final.put(s, new CSet<Label>(s.label));
         cfg.f_blocks.put(s, new CSet<Statement>(s));
+        
 	}
 	public void visit(IfStmt s) {
 		cfg.addLabel(s);
@@ -203,13 +205,24 @@ class CFGVisitor extends WhileLangVisitor {
 	
 	 
 	public void visit(FunctionDec s) {
-		 
+		for (Statement st : cfg.returns.keySet()){
+	      cfg.f_flow.put(s, new CSet<Edge>(new Edge(st.label, s.label2)).union(cfg.f_flow.get(s)));
+	    }
+	    for (Statement st : cfg.varDecs.keySet()){
+	      cfg.f_flow.put(s, new CSet<Edge>(new Edge(s.label, st.label)).union(cfg.f_flow.get(s)));
+	    }
 	}
 	public void visit(VarDecStmt s) {  
-		 
+		cfg.f_flow.put(s, new CSet<Edge>());
+		if (s.hasInitializer()){
+			cfg.interflow.add(new InterEdge(s.label, cfg.functions.get(s.variable).label, cfg.functions.get(s.variable).label2,s.label2 ));
+		}
 	}
 	public void visit(ReturnStmt s) {
-		 
+		cfg.f_flow.put(s, new CSet<Edge>());
+		for ( Statement st : cfg.functions.values()){
+			cfg.f_flow.put(s, new CSet<Edge>(new Edge(s.label, st.label2)).union(cfg.f_flow.get(s)));
+		}
 	}
 	public void visit(BlockStmt s) { 
 		for(Statement stmt : s.statements) {
@@ -229,6 +242,8 @@ class CFGVisitor extends WhileLangVisitor {
 	}
 	public void visit(ExpressionStmt s) { 
 		cfg.f_flow.put(s, new CSet<Edge>());
+		
+		
 	}
 	public void visit(EmptyStmt s) {
 		cfg.f_flow.put(s, new CSet<Edge>());
