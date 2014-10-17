@@ -76,7 +76,7 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	
+	/*
 	@Test
 	public void testAexp() {
  
@@ -181,4 +181,5 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
+	*/
 }
