@@ -119,6 +119,7 @@ class LabelVisitor extends WhileLangVisitor {
 		cfg.f_init.put(s, s.label);
 		cfg.f_final.put(s, new CSet<Label>(s.label));
 		s.function.body.accept(this);
+		// wrong :
 		cfg.f_blocks.put(s, cfg.f_blocks.get(s.function.body));
 	}
 	public void visit(VarDecStmt s) { 
@@ -136,6 +137,7 @@ class LabelVisitor extends WhileLangVisitor {
 		 cfg.returns.put(s, new CSet<ReturnStmt>(s));
 		 cfg.f_init.put(s, s.label);
 		 cfg.f_final.put(s, new CSet<Label>(s.label));
+		 // wrong : 
 		 cfg.f_blocks.put(s, new CSet<Statement>(s));
 	}
 	
