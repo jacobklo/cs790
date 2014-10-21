@@ -1,5 +1,7 @@
+
 function fib(z, u) {
 	var v;
+
 	if (z < 3) {
 		v = u + 1;
 	} else {

@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.mozilla.javascript.ast.AstNode;
 
-
 /*
  *  Expression AST starts here.
  */

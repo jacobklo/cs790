@@ -25,25 +25,7 @@ public abstract class DFA<L> {
 	CSet<L> f(Label ell, CSet<L> l) {
 		return l.subtract(kill.get(ell)).union(gen.get(ell));
 	}
-	
-//	CSet<L> exit(Label ell, CSet<L> l) {
-//		return f(ell, l);
-//	}
-//	CSet<L> entry(Label ell, Map<Label, CSet<L>> analysis) {
-//		CSet<L> out = bottom;
-//		
-//		if (extremal_labels.contains(ell)) {
-//			out = extremal_value;
-//		}
-//		
-//		for(Edge e : flow) {
-//			if (e.right == ell) {
-//				out = lub(out, analysis.get(e.left));
-//			}
-//		}
-//		return out;
-//	}
-	
+
 
 	Map<Label, CSet<L>> analysis_0 = new HashMap<Label, CSet<L>>(),
 						analysis_1 = new HashMap<Label, CSet<L>>();
@@ -120,6 +102,25 @@ public abstract class DFA<L> {
 	
 	Map<Label, CSet<L>> mfp_entry = new HashMap<Label, CSet<L>>(), 
 			mfp_exit = new HashMap<Label, CSet<L>>();
+	
+//	CSet<L> exit(Label ell, CSet<L> l) {
+//		return f(ell, l);
+//	}
+//	CSet<L> entry(Label ell, Map<Label, CSet<L>> analysis) {
+//		CSet<L> out = bottom;
+//		
+//		if (extremal_labels.contains(ell)) {
+//			out = extremal_value;
+//		}
+//		
+//		for(Edge e : flow) {
+//			if (e.right == ell) {
+//				out = lub(out, analysis.get(e.left));
+//			}
+//		}
+//		return out;
+//	}
+	
 }
 
 

@@ -35,12 +35,12 @@ public class AnalysisTest {
 		return scriptOrFnNode; 
 	} 
 	
-	public static String projPath = "analysis/";
+	public static String projPath = "rhino-inference/";
 	
 	@Test
 	public void testFile() {
  
-		String f = "cfg/fib.js";
+		String f = "cfg/polymorphic.js";
 		
 		Context context = Context.enter();
 		Parser parser = getParser(context);
@@ -76,7 +76,7 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	/*
+	
 	@Test
 	public void testAexp() {
  
@@ -181,5 +181,37 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	*/
+	
+	
+	@Test
+	public void testConstantPropagation() {
+ 
+		String f = "cfg/polymorphic.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+			ConstantPropagation cp = new ConstantPropagation(s);
+			cp.worklistAlgorithm();
+			
+			System.out.println("==== entry ====");
+			for(Label l : cp.mfp_entry.keySet()) {
+				System.out.println(l + " : " + cp.mfp_entry.get(l));
+			}
+			System.out.println("==== exit ====");
+			for(Label l : cp.mfp_exit.keySet()) {
+				System.out.println(l + " : " + cp.mfp_exit.get(l));
+			}
+			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
 }

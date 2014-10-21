@@ -40,6 +40,14 @@ public class CFG {
 	// interflow: P(Lab X Lab X Lab X Lab)
 	CSet<InterEdge> interflow = new CSet<InterEdge>();
 	
+	Label get_l_n(Label l_c) {
+		Label l_n = null;
+		for (InterEdge e : interflow) {
+			if (e.lc == l_c) { l_n = e.ln;  break; }
+		}
+		return l_n;
+	}
+	
 	// functions: String -> FunctionDec
 	Map<String, FunctionDec> functions = new HashMap<String, FunctionDec>();
 	
@@ -59,18 +67,10 @@ public class CFG {
 		if (varDecs.containsKey(s)) v = varDecs.get(s);
 		return v;
 	}
-	void setReturn(Statement s, ReturnStmt r) {
-		returns.put(s, new CSet<ReturnStmt>(r));
-	}
-	void setReturn(Statement s, CSet<ReturnStmt> r) {
-		returns.put(s, r);
-	}
-	void setVarDec(Statement s, VarDecStmt v) {
-		varDecs.put(s, new CSet<VarDecStmt>(v));
-	}
-	void setVarDec(Statement s, CSet<VarDecStmt> v) {
-		varDecs.put(s, v);
-	}
+	void setReturn(Statement s, ReturnStmt r) { returns.put(s, new CSet<ReturnStmt>(r)); }
+	void setReturn(Statement s, CSet<ReturnStmt> r) { returns.put(s, r); }
+	void setVarDec(Statement s, VarDecStmt v) { varDecs.put(s, new CSet<VarDecStmt>(v)); }
+	void setVarDec(Statement s, CSet<VarDecStmt> v) { varDecs.put(s, v); }
 	
 	/* END: inter-procedural CFG definitions */
 	
