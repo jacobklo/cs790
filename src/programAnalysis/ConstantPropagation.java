@@ -208,10 +208,21 @@ abstract class CP_Fun implements TF_Function<State> {
 			public State apply(Analysis<State> arg) { return arg.get(ell); }
 		};
 	}
+	// TODO what you need to do
+	static CP_Fun_Hat getIdFunction(final Label ell) {
+		return new CP_Fun_Hat() {
+			public ContextualState apply(Analysis<ContextualState> arg) { return arg.get(ell); }
+		};
+	}
 	
 	static CP_Fun getReturnFunction(final Label ell, final Expression exp) {
 		return new CP_Fun() {
 			public State apply(Analysis<State> analysis) {
+				// TODO all these interprocedural 
+				// for all these contextual state, 
+				// for eaxh context in the old contextual state
+				// we need to update the context that map the to the new contexual state
+				
 				return analysis.get(ell).setReturnVar(a_cp.apply(exp).apply(analysis.get(ell)));
 			}
 		};
