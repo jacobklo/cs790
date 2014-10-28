@@ -35,7 +35,7 @@ public class AnalysisTest {
 		return scriptOrFnNode; 
 	} 
 	
-	public static String projPath = "rhino-inference/";
+	public static String projPath = "analysis/";
 	
 	@Test
 	public void testFile() {

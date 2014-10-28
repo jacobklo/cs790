@@ -52,6 +52,19 @@ class Int extends ExtInt {
 	ExtInt negate() { i = -i; return this; }
 	public String toString() { return i + ""; }
 }
+
+class Context {
+	// Define Context class to represent call strings of at most size <= k
+	// so if k == 1, then it should return the {9,4,6}
+	
+	int k;
+	CSet<k,> //TODO : Map k to each call string
+	public Context(int size){
+		k = size;
+		
+	}
+}
+
 // sigma: Var -> ExtInt (Z + top + bottom)
 class State extends HashMap<String, ExtInt> {
 	private static final long serialVersionUID = 1L;
@@ -100,6 +113,33 @@ class State extends HashMap<String, ExtInt> {
 		}
 		return s;
 	}
+	
+	public ExtInt put(String var, ExtInt z) {
+		return super.put(var, z);
+	}
+	
+	public ExtInt get(Object var) {
+		ExtInt ret = defaultZ;
+		if (this.containsKey(var)) ret = super.get(var);
+		return ret;
+	}
+	
+	// not a legal variable name, we use it for function return value
+	private final static String RET_VAR = "0__ret"; 
+	State setReturnVar(ExtInt z) { 
+		State s = new State(this);
+		s.put(RET_VAR, z); 
+		return s;
+	}
+	ExtInt getReturnVar() { return get(RET_VAR); }
+}
+
+class ContextualState extends HashMap<Context, State> {
+	private static final long serialVersionUID = 1L;
+	
+	final Context callString;
+	private ContextualState(Context callString) { this.callString = callString; }	
+	
 	
 	public ExtInt put(String var, ExtInt z) {
 		return super.put(var, z);
@@ -209,11 +249,7 @@ abstract class CP_Fun implements TF_Function<State> {
 		};
 	}
 	// TODO what you need to do
-	static CP_Fun_Hat getIdFunction(final Label ell) {
-		return new CP_Fun_Hat() {
-			public ContextualState apply(Analysis<ContextualState> arg) { return arg.get(ell); }
-		};
-	}
+	
 	
 	static CP_Fun getReturnFunction(final Label ell, final Expression exp) {
 		return new CP_Fun() {
@@ -222,6 +258,9 @@ abstract class CP_Fun implements TF_Function<State> {
 				// for all these contextual state, 
 				// for eaxh context in the old contextual state
 				// we need to update the context that map the to the new contexual state
+				
+				//TODO: need to know what is transfer function
+				// TODO : Need to nknow what is simar1, sigmar2
 				
 				return analysis.get(ell).setReturnVar(a_cp.apply(exp).apply(analysis.get(ell)));
 			}
