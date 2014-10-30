@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import org.junit.Test;
 import org.mozilla.javascript.CompilerEnvirons;
@@ -11,6 +14,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ErrorReporter;
 import org.mozilla.javascript.Parser;
 import org.mozilla.javascript.ast.AstRoot;
+
 
 public class AnalysisTest {
 	public static Parser getParser(Context context) {
@@ -198,13 +202,61 @@ public class AnalysisTest {
 			ConstantPropagation cp = new ConstantPropagation(s);
 			cp.worklistAlgorithm();
 			
+			List<Label> labels = new ArrayList<Label>(cp.mfp_entry.keySet());
+			Collections.sort(labels);
+			
 			System.out.println("==== entry ====");
-			for(Label l : cp.mfp_entry.keySet()) {
+			for(Label l : labels) {
 				System.out.println(l + " : " + cp.mfp_entry.get(l));
 			}
 			System.out.println("==== exit ====");
-			for(Label l : cp.mfp_exit.keySet()) {
+			for(Label l : labels) {
 				System.out.println(l + " : " + cp.mfp_exit.get(l));
+			}
+			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
+	
+	@Test
+	public void test0CFA() {
+		String f = "cfg/fun.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+			CFA cfa = new CFA(s);
+			cfa.worklist();
+			
+			List<Label_E> labels = new ArrayList<Label_E>(cfa.cache.keySet());
+			Collections.sort(labels);
+			
+			System.out.println("==== labelled expressions ====");
+			
+			for(Label_E l : labels) {
+				System.out.println(l + " : " + cfa.labelledExp.get(l));
+			}
+			
+			System.out.println("==== cache ====");
+			for(Label_E l : labels) {
+				System.out.print(l + " : ");
+				for(FunctionExpr d :cfa.cache.get(l).d) System.out.print(d.label + " ");
+				System.out.println();
+			}
+			
+			System.out.println("==== env ====");
+			for(String x : cfa.env.keySet()) {
+				System.out.print(x + " : ");
+				for(FunctionExpr d :cfa.env.get(x).d) System.out.print(d.label + " "); 
+				System.out.println();
 			}
 			
 		} catch(IOException e) {

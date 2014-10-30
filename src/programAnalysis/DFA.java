@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.Stack;
 
 
+
 public abstract class DFA<L> {
 	
 	CSet<Label> extremal_labels;	// E

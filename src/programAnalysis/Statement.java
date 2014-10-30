@@ -5,6 +5,7 @@ import java.util.Set;
 
 import org.mozilla.javascript.ast.AstNode; 
 
+
 abstract class Statement {
 	Label label;
 	void setLabel(Label label) { this.label = label; }
@@ -25,7 +26,7 @@ abstract class Statement {
     
 	public String toString() { return getClass().getName() + ":" + node.getLineno(); }
 	
-	public void accept(Visitor v) { v.visit(this); }
+	abstract public void accept(Visitor v);
 }
  
 class EmptyStmt extends Statement {
@@ -112,12 +113,12 @@ class ContinueStmt extends Statement {
 	public void accept(Visitor v) { v.visit(this); }
 }
 
-class EntryExitStmt extends Statement {
-	boolean isEntry;
-	
-	EntryExitStmt(boolean isEntry) { this.isEntry = isEntry; }
-	public String toString() { return isEntry? "entry" : "exit"; }
-}
+//class EntryExitStmt extends Statement {
+//	boolean isEntry;
+//	
+//	EntryExitStmt(boolean isEntry) { this.isEntry = isEntry; }
+//	public String toString() { return isEntry? "entry" : "exit"; }
+//}
 
 class ReturnStmt extends Statement {
 	final Expression expr;
@@ -150,7 +151,7 @@ class BlockStmt extends Statement {
 }
 
 class ScriptStmt extends BlockStmt  { 
-    final Statement entry = new EntryExitStmt(true), exit = new EntryExitStmt(false);
+//    final Statement entry = new EntryExitStmt(true), exit = new EntryExitStmt(false);
    
    
 	ScriptStmt (List<Statement> stmts) {

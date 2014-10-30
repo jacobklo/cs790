@@ -10,10 +10,14 @@ import org.mozilla.javascript.ast.AstNode;
 
 abstract class Expression {
 	 
+	Label_E label;
+	void setLabel(Label_E label) { this.label = label; }
+	Label_E getLabel() { return this.label; }
+	
 	AstNode node;
 	void setAstNode(AstNode node) { this.node = node; }
 	
-	public void accept(Visitor v) { v.visit(this); }
+	abstract public void accept(Visitor v);
 	
 	public boolean equals(Object that) {
 		if (that instanceof Expression) {

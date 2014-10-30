@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 
+
 // transfer functions<L> : (Lab -> L) -> L
 interface TF_Function<L> { L apply(Analysis<L> analysis); }
 // Analysis<L> : Lab -> L
