@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 
 public class CFA {
 	Map<Label_E, SetVar> cache;
@@ -28,7 +29,10 @@ public class CFA {
 	}
 	
 	void worklist() {
-		// implement
+		// implement  P.178 table 3.7
+		
+		//SetVar already create a D[q], E[q]
+		//dont need to do step 1,4
 	}
 }
 
@@ -54,17 +58,40 @@ class SetVar {
 }
 
 abstract class Constraint {
+	void add(SetVar q, CSet<FunctionExpr> d, Stack<SetVar> w) {
+		if (q.add(d)) {
+			w.push(q); // worklist is a stack
+		}
+		
+		// so somehow the Constraint will use the e in line 41
+	}
+
+	abstract void build();
+	abstract void iter();
 }
 
 // {t} subseteq p
 class ConcreteConstraint extends Constraint {
+
+	@Override
+	void build() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	void iter() {
+		// TODO Auto-generated method stub
+		
+	}
+	
 }
 
 // p1 subseteq p2
 class SubsetConstraint extends Constraint {
 }
 
-// {t} subseteq p => p1 subseteq p2
+// {t} subseteq p => p1 subseteq p2     
 class ConditionalConstraint extends Constraint {
 }
 
