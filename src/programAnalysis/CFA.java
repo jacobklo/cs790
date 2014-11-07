@@ -33,6 +33,28 @@ public class CFA {
 		
 		//SetVar already create a D[q], E[q]
 		//dont need to do step 1,4
+		// step 1:
+		Stack<SetVar> w = new Stack<SetVar>();
+		for (SetVar q : cache.values()){
+			w.push(q);
+		}
+		
+		//cons == push
+		// step 2:
+		for ( Constraint cc : constraints){
+			cc.build(w);
+		}
+		
+		//Step 3:
+		while(!w.isEmpty()) {
+			SetVar q = w.pop();
+			for ( Constraint cc : q.e) {
+				cc.iter(w);
+			}
+		}
+		
+		// step 4 ?
+		
 	}
 }
 
@@ -66,33 +88,80 @@ abstract class Constraint {
 		// so somehow the Constraint will use the e in line 41
 	}
 
-	abstract void build();
-	abstract void iter();
+	abstract void build(Stack<SetVar> w);
+	abstract void iter(Stack<SetVar> w);
 }
 
 // {t} subseteq p
 class ConcreteConstraint extends Constraint {
-
-	@Override
-	void build() {
-		// TODO Auto-generated method stub
+	CSet<FunctionExpr> t;
+	CSet<Expression> p;
+	
+	ConcreteConstraint(CSet<Expression> ft){
+		t = ft;
 		
+	}
+	@Override
+	void build(Stack<SetVar> w) {
+		for ( SetVar sv : w){
+			if (sv.d.containsAll(t)){
+				t.addAll(sv.d);
+			}
+		}
 	}
 
 	@Override
-	void iter() {
-		// TODO Auto-generated method stub
-		
+	void iter(Stack<SetVar> w) {
+		// do nothing
 	}
 	
 }
 
 // p1 subseteq p2
 class SubsetConstraint extends Constraint {
+	CSet<Expression> p1;
+	CSet<Expression> p2;
+	
+	
+	SubsetConstraint(CSet<Expression> cp1,CSet<Expression> cp2 ){
+		p1 = cp1;
+		p2 = cp2;
+	}
+	
+	@Override
+	void build(Stack<SetVar> w) {
+		for (SetVar sv : w){
+			if (p2.containsAll(p1)){
+				
+			}
+		}
+		
+		//sv.e.add(this);
+	}
+
+	@Override
+	void iter(Stack<SetVar> w) {
+		// TODO Auto-generated method stub
+		
+	}
+	
 }
 
 // {t} subseteq p => p1 subseteq p2     
 class ConditionalConstraint extends Constraint {
+
+	@Override
+	void build(Stack<SetVar> w) {
+		SetVar sv = w.pop();
+		
+	
+	}
+
+	@Override
+	void iter(Stack<SetVar> w) {
+		// TODO Auto-generated method stub
+		
+	}
 }
 
 class ConstraintVisitor extends FunLangVisitor {
@@ -105,41 +174,106 @@ class ConstraintVisitor extends FunLangVisitor {
 	ConstraintVisitor(Map<FunctionExpr, CSet<Expression>> functionReturns) {
 		this.functionReturns = functionReturns;
 	}
-	
-	// e
-	public void visit(ExpressionStmt s) {  
+
+	public void visit(ExpressionStmt s) {
 		s.expr.accept(this);
 	}
+
 	// var x = e or let x = e ...
-	public void visit(VarDecStmt s) {  
+	public void visit(VarDecStmt s) {
+		env.put(s.variable, new SetVar(""+s.variable));
+		s.rValue.accept(this);
+		CSet<Expression> p1 = new CSet<Expression>();
+		CSet<Expression> p2 = new CSet<Expression>();
+		
+		p1.add(s.rValue);
+		
+		constraints.add(new SubsetConstraint(p1));
 	}
+
 	// return e
-	public void visit(ReturnStmt s) { 
+	public void visit(ReturnStmt s) {
+		s.expr.accept(this);
 	}
+
 	// e (e')
-	public void visit(FunctionCallExpr e) { 
+	public void visit(FunctionCallExpr e) {
+		cache.put(e.target.getLabel(), new SetVar(""+e.target.getLabel()));
+		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
+		CSet<Expression> p1 = new CSet<Expression>();
+		
+		for (Expression ex : e.arguments) {
+			ex.accept(this);
+			p1.add(ex);
+		}
+		
+		constraints.add(new SubsetConstraint(p1));
+		
 	}
-	// function(x) { s } or function f(x) { s } 
+
+	// function(x) { s } or function f(x) { s }
 	public void visit(FunctionExpr e) {
+		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
+		for (String s : e.parameters) {
+			env.put(s, new SetVar(""+s));
+		}
+		
+		CSet<Expression> p1 = new CSet<Expression>();
+		constraints.add(new SubsetConstraint(p1));
+		
+		e.body.accept(this);
 	}
+
 	// if(b) then e else e'
-	public void visit(ConditionalExpr  e) { 
+	public void visit(ConditionalExpr e) {
+		cache.put(e.getLabel(),new SetVar(""+e.getLabel()));
+	    e.condition.accept(this);
+	    e.truePart.accept(this);
+	    e.falsePart.accept(this);
+	    
+	    
 	}
+
 	// x
-	public void visit(VarAccessExpr e) { 
+	public void visit(VarAccessExpr e) {
+		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
+		
+		constraints.add(new ConcreteConstraint(e));
 	}
+
 	// c
-	public void visit(NumberExpr e) { }
-	public void visit(BoolExpr e) { }
+	public void visit(NumberExpr e) {
+		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
+	}
+
+	public void visit(BoolExpr e) {
+	}
+
 	// e op e'
-	public void visit(AddExpr e) { }
-	public void visit(NumericExpr e) { }
-	public void visit(LogicExpr e) {  }
-	public void visit(ComparisonExpr e) { }
-	
+	public void visit(AddExpr e) {
+		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
+		e.left.accept(this);
+		e.right.accept(this);
+		
+		constraints.add(new ConcreteConstraint(e.left));
+		constraints.add(new ConcreteConstraint(e.right));
+	}
+
+	public void visit(NumericExpr e) {
+	}
+
+	public void visit(LogicExpr e) {
+	}
+
+	public void visit(ComparisonExpr e) {
+	}
+
 	// op e
-	public void visit(NegationExpr e) { }
-	public void visit(LogicNotExpr e) { }
-	
+	public void visit(NegationExpr e) {
+		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
+		e.operand.accept(this);
+		
+		constraints.add(new ConcreteConstraint(e.operand));
+	}
 }
 

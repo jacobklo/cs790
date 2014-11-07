@@ -40,7 +40,7 @@ public class AnalysisTest {
 	} 
 	
 	public static String projPath = "analysis/";
-	
+	/*
 	@Test
 	public void testFile() {
  
@@ -221,7 +221,7 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	
+	*/
 	@Test
 	public void test0CFA() {
 		String f = "cfg/fun.js";
