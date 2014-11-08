@@ -35,6 +35,7 @@ public class CFA {
 		//dont need to do step 1,4
 		// step 1:
 		Stack<SetVar> w = new Stack<SetVar>();
+		// maybe we dont need?
 		for (SetVar q : cache.values()){
 			w.push(q);
 		}
@@ -95,19 +96,23 @@ abstract class Constraint {
 // {t} subseteq p
 class ConcreteConstraint extends Constraint {
 	CSet<FunctionExpr> t;
-	CSet<Expression> p;
+	CSet<FunctionExpr> p;
 	
-	ConcreteConstraint(CSet<Expression> ft){
+	ConcreteConstraint(CSet<FunctionExpr> fp, CSet<FunctionExpr> ft){
 		t = ft;
+		p = fp;
 		
 	}
 	@Override
 	void build(Stack<SetVar> w) {
 		for ( SetVar sv : w){
-			if (sv.d.containsAll(t)){
-				t.addAll(sv.d);
+			if (p.containsAll(t)){ // if p subset or equal t
+				if (sv.d.containsAll(p) && p.containsAll(sv.d)){ // if p == D[q]
+					add(sv,t,w);
+				}
 			}
 		}
+		
 	}
 
 	@Override
@@ -119,11 +124,11 @@ class ConcreteConstraint extends Constraint {
 
 // p1 subseteq p2
 class SubsetConstraint extends Constraint {
-	CSet<Expression> p1;
-	CSet<Expression> p2;
+	CSet<FunctionExpr> p1;
+	CSet<FunctionExpr> p2;
 	
 	
-	SubsetConstraint(CSet<Expression> cp1,CSet<Expression> cp2 ){
+	SubsetConstraint(CSet<FunctionExpr> cp1,CSet<FunctionExpr> cp2 ){
 		p1 = cp1;
 		p2 = cp2;
 	}
@@ -141,7 +146,18 @@ class SubsetConstraint extends Constraint {
 
 	@Override
 	void iter(Stack<SetVar> w) {
-		// TODO Auto-generated method stub
+		for ( SetVar sv : w){
+			if (p2.containsAll(p1)){ // p1 subset or equal to p2
+				if (sv.d.containsAll(p2) && p2.containsAll(sv.d)){ // p2 == E[p2]
+					for ( SetVar sv2 : w){
+						if (sv.d.containsAll(p1) && p1.containsAll(sv.d)){
+							add(sv,sv2.d,w);
+						}
+					}
+				}
+			}
+		}
+		
 		
 	}
 	
@@ -149,18 +165,40 @@ class SubsetConstraint extends Constraint {
 
 // {t} subseteq p => p1 subseteq p2     
 class ConditionalConstraint extends Constraint {
-
+	CSet<FunctionExpr> t;
+	CSet<FunctionExpr> p;
+	CSet<FunctionExpr> p1;
+	CSet<FunctionExpr> p2;
+	
+	ConditionalConstraint(CSet<FunctionExpr> ct, CSet<FunctionExpr> cp, CSet<FunctionExpr> cp1, CSet<FunctionExpr> cp2){
+		t = ct;
+		p = cp;
+		p1 = cp1;
+		p2 =cp2;
+		
+	}
+	
 	@Override
 	void build(Stack<SetVar> w) {
-		SetVar sv = w.pop();
+		
 		
 	
 	}
 
 	@Override
 	void iter(Stack<SetVar> w) {
-		// TODO Auto-generated method stub
-		
+		for ( SetVar sv : w){
+			if (p2.containsAll(p1) && // p1 subset or equal to p2
+					p.){ 
+				if (sv.d.containsAll(p2) && p2.containsAll(sv.d)){ // p2 == E[p2]
+					for ( SetVar sv2 : w){
+						if (sv.d.containsAll(p1) && p1.containsAll(sv.d)){ // p1 == E[p1]
+							add(sv,sv2.d,w);
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
