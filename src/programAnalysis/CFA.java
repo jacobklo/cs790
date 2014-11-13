@@ -135,11 +135,14 @@ class SubsetConstraint extends Constraint {
 	
 	@Override
 	void build(Stack<SetVar> w) {
-		for (SetVar sv : w){
-			if (p2.containsAll(p1)){
-				
+		if (p2.containsAll(p1)){
+			for ( SetVar sv : w){
+				if (sv.d.containsAll(p1) && p1.containsAll(sv.d)){ // p1 == E[p1]
+					sv.e.add(this);
+				}
 			}
 		}
+		
 		
 		//sv.e.add(this);
 	}
@@ -180,7 +183,20 @@ class ConditionalConstraint extends Constraint {
 	
 	@Override
 	void build(Stack<SetVar> w) {
-		
+		if (p2.containsAll(p1) && // p1 subset or equal to p2
+				p1.containsAll(p) && // p => p1
+				p.containsAll(t)){ // {t} subset or equal p
+			for ( SetVar sv : w){
+				if (sv.d.containsAll(p1) && p1.containsAll(sv.d)){ // p1 == E[p1]
+					sv.e.add(this);
+				}
+			}
+			for ( SetVar sv : w){
+				if (sv.d.containsAll(p) && p.containsAll(sv.d)){ // p1 == E[p1]
+					sv.e.add(this);
+				}
+			}
+		}
 		
 	
 	}
@@ -189,7 +205,8 @@ class ConditionalConstraint extends Constraint {
 	void iter(Stack<SetVar> w) {
 		for ( SetVar sv : w){
 			if (p2.containsAll(p1) && // p1 subset or equal to p2
-					p.){ 
+					p1.containsAll(p) && // p => p1
+					p.containsAll(t)){  // {t} subset or equal p
 				if (sv.d.containsAll(p2) && p2.containsAll(sv.d)){ // p2 == E[p2]
 					for ( SetVar sv2 : w){
 						if (sv.d.containsAll(p1) && p1.containsAll(sv.d)){ // p1 == E[p1]
@@ -221,12 +238,15 @@ class ConstraintVisitor extends FunLangVisitor {
 	public void visit(VarDecStmt s) {
 		env.put(s.variable, new SetVar(""+s.variable));
 		s.rValue.accept(this);
-		CSet<Expression> p1 = new CSet<Expression>();
-		CSet<Expression> p2 = new CSet<Expression>();
-		
-		p1.add(s.rValue);
-		
-		constraints.add(new SubsetConstraint(p1));
+		CSet<FunctionExpr> p1 = new CSet<FunctionExpr>();
+		CSet<FunctionExpr> p2 = new CSet<FunctionExpr>();
+		// C*[t1]
+		constraints.add(new ConcreteConstraint(cache.get(s.label).d,new CSet<FunctionExpr>((FunctionExpr)s.rValue)));
+		// C(l1)
+		p1.add((FunctionExpr)s.rValue);
+		// r(x)
+		p2.addAll(cache.get(s.label).d);
+		constraints.add(new SubsetConstraint(p1,p2));
 	}
 
 	// return e
@@ -238,15 +258,18 @@ class ConstraintVisitor extends FunLangVisitor {
 	public void visit(FunctionCallExpr e) {
 		cache.put(e.target.getLabel(), new SetVar(""+e.target.getLabel()));
 		cache.put(e.getLabel(), new SetVar(""+e.getLabel()));
-		CSet<Expression> p1 = new CSet<Expression>();
-		
+		CSet<FunctionExpr> p1 = new CSet<FunctionExpr>();
+		CSet<FunctionExpr> p2 = new CSet<FunctionExpr>();
+		//{fn x => e0}
 		for (Expression ex : e.arguments) {
 			ex.accept(this);
-			p1.add(ex);
+			p1.add((FunctionExpr) ex);
 		}
-		
-		constraints.add(new SubsetConstraint(p1));
-		
+		// C(l)
+		p2.addAll(cache.get(e.label).d);
+		constraints.add(new SubsetConstraint(p1,p2));
+		// C*[e0]
+		constraints.add(new ConcreteConstraint(cache.get(e.label).d,new CSet<FunctionExpr>((FunctionExpr)e.target)));
 	}
 
 	// function(x) { s } or function f(x) { s }
@@ -256,8 +279,19 @@ class ConstraintVisitor extends FunLangVisitor {
 			env.put(s, new SetVar(""+s));
 		}
 		
-		CSet<Expression> p1 = new CSet<Expression>();
-		constraints.add(new SubsetConstraint(p1));
+		CSet<FunctionExpr> p1 = new CSet<FunctionExpr>();
+		CSet<FunctionExpr> p2 = new CSet<FunctionExpr>();
+		//{fn x => e0}
+		for (Expression ex : ) {
+			ex.accept(this);
+			p1.add((FunctionExpr) ex);
+		}
+		// C(l)
+		p2.addAll(cache.get(e.label).d);
+		constraints.add(new SubsetConstraint(p1,p2));
+		// C*[e0]
+		constraints.add(new ConcreteConstraint(cache.get(e.label).d,new CSet<FunctionExpr>((FunctionExpr)e.target)));
+	
 		
 		e.body.accept(this);
 	}
