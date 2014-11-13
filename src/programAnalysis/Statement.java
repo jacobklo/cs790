@@ -273,6 +273,17 @@ class ExpressionStmt extends Statement {
 }
 
 class VarDecStmt extends Statement {
+	/* Begin of variable addition */
+	
+	Variable var;
+	void setVariable(Variable var) { this.var = var; }
+	Variable getVariable() { 
+		if (var == null) Logger.error("Variable " + variable + " has not been prossessed");
+		return var; 
+	}
+	
+	/* End of variable addition */
+	
 	final String variable;
 	final Expression rValue;
 	boolean usedByInnerScopes = false;

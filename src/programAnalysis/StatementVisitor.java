@@ -381,8 +381,8 @@ public class StatementVisitor {
 		case Token.EMPTY:
 			ret = new EmptyExpr();
 			break;
-		case Token.LP:
-			ret = new ParenthesizedExpr(visitExpression(((ParenthesizedExpression) node).getExpression()));
+		case Token.LP: // strip the parenthesis from expressions. They are destructive nuisance. 
+			ret = visitExpression(((ParenthesizedExpression) node).getExpression());
 			break;
 		case Token.FUNCTION:
 			ret = visitExpression((FunctionNode) node);

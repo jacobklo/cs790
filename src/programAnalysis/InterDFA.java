@@ -1,6 +1,8 @@
 package programAnalysis;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
@@ -61,4 +63,43 @@ public abstract class InterDFA<L> {
 	}
 }
 
-
+abstract class GenericContext<LB> {
+	private List<LB> list;
+	
+	abstract int getK();
+	
+	GenericContext() { list = new ArrayList<LB>(); }
+	GenericContext(GenericContext<LB> that) {
+		this.list = new ArrayList<LB>(that.list);
+	}
+	int size() { return list.size(); }
+	void remove() { list.remove(0); }
+	void add(LB l_c) { list.add(l_c); }
+	LB get(int i) { return list.get(i); }
+	
+	void addCallStringToSelf(LB l_c) {
+		if (size() >= getK()) {
+			remove();
+		}
+		add(l_c);
+	}
+	@SuppressWarnings("rawtypes")
+	public boolean equals(Object that) {
+		if (that instanceof GenericContext) {
+			return (list.equals(((GenericContext) that).list));
+		}
+		return false;
+	}
+	public int hashCode() { 
+		int ret = 0;
+		for(LB l : this.list) {
+			ret = ret * 10 + l.hashCode();
+		}
+		return ret;
+	}
+	public String toString() {
+		String empty = "\u039B";
+		if (list.size() == 0) return empty;
+		else return list.toString();
+	}
+}

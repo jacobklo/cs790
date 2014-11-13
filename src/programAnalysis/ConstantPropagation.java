@@ -8,6 +8,8 @@ import java.util.Map;
 
 import org.mozilla.javascript.Token;
 
+
+
 abstract class ExtInt {
 	abstract ExtInt lub(ExtInt r);
 	boolean isTop() { return false; }
@@ -52,106 +54,181 @@ class Int extends ExtInt {
 	ExtInt negate() { i = -i; return this; }
 	public String toString() { return i + ""; }
 }
-
-class Context {
-	// Define Context class to represent call strings of at most size <= k
-	// so if k == 1, then it should return the {7,9}
-	ArrayList<Label> callStringWhenKEqualsToOne;
-	int k;
-	public Context(int size){
-		callStringWhenKEqualsToOne = new ArrayList<Label>();
-		k = size;
-	}
-	public Context(int size, Label s){
-		callStringWhenKEqualsToOne = new ArrayList<Label>();
-		k = size;
-		callStringWhenKEqualsToOne.add(s);
-	}
-	
-	public void addCallStringWhenKEqualsToOne(Label label){
-		callStringWhenKEqualsToOne.add(label);
-	}
-}
-
-
-
-class ContextualState extends HashMap<Context, State> {
+// sigma: Var -> ExtInt (Z + top + bottom)
+class State extends HashMap<String, ExtInt> {
 	private static final long serialVersionUID = 1L;
 	
-	final State theState;
-	ContextualState(State theState) { this.theState = theState; }	
-	ContextualState(ContextualState that) { super(that); this.theState = that.theState; }
+	final ExtInt defaultZ;
+	private State(ExtInt defaultZ) { this.defaultZ = defaultZ; }	
+	static State getTopState() { return new State(Top.getTop()); }
+	static State getBottomState() { return new State(Bottom.getBottom()); }
 	
-	public State put(Context whatCallString, State s) {
-		return super.put(whatCallString,s);
+	State(State that) { super(that); this.defaultZ = that.defaultZ; }
+	
+	ExtInt getDefault() { return defaultZ; }
+	
+	public String toString() {
+		String ret = "[";
+		for(String var : keySet()) {
+			ret += var + ": " + get(var) + " ";
+		}
+		return ret + "]";
 	}
 	
-	public State get(Object var) {
-		State ret = theState;
+	State update(String x, ExtInt z) {
+		State s = new State(this);
+		s.put(x, z);
+		return s;
+	}
+	State update(List<String> params, List<ExtInt> args) {
+		State s = new State(this);
+		for (int i=0; i<params.size()&&i<args.size(); i++) s.put(params.get(i), args.get(i));
+		return s;
+	}
+	State update(String lhs, List<String> localVars, State sigma1) {
+		State s = new State(this);
+		// write return value back to lhs variable
+		s.put(lhs, s.get(RET_VAR));
+
+		localVars.add(RET_VAR);
+		
+		// reset any variables that are shadowed by the local variables/parameters of the called function
+		for(String var : localVars) {
+			if(sigma1.containsKey(var)) {
+				s.put(var, sigma1.get(var));
+			} else {
+				s.remove(var);
+			}
+		}
+		return s;
+	}
+	
+	public ExtInt put(String var, ExtInt z) {
+		return super.put(var, z);
+	}
+	
+	public ExtInt get(Object var) {
+		ExtInt ret = defaultZ;
 		if (this.containsKey(var)) ret = super.get(var);
 		return ret;
 	}
 	
 	// not a legal variable name, we use it for function return value
-	private final static Context RET_STATE = new Context(1,new Label(0, null)); // k = 1
-	ContextualState setReturnState(State z) { 
-		ContextualState s = new ContextualState(this);
-		s.put(RET_STATE, z); 
+	private final static String RET_VAR = "0__ret"; 
+	State setReturnVar(ExtInt z) { 
+		State s = new State(this);
+		s.put(RET_VAR, z); 
 		return s;
 	}
-	State getReturnState() { return get(RET_STATE); }
-}
-
-
-
-public class ConstantPropagation2 extends InterDFA<ContextualState> {
-
-	@Override
-	ContextualState lub(ContextualState a, ContextualState u) {
-		State analysis = a.theState;
-		State update = u.theState;
-		
-		ExtInt defaultZ = analysis.getDefault().lub(update.getDefault());
+	ExtInt getReturnVar() { return get(RET_VAR); }
+	
+	
+	State lub(State update) {
+		ExtInt defaultZ = this.getDefault().lub(update.getDefault());
 		State sigma; 
 		if (defaultZ == Top.getTop()) sigma = State.getTopState();
 		else sigma = State.getBottomState();
 		
 		List<String> vars = new ArrayList<String>();
-		vars.addAll(analysis.keySet());
+		vars.addAll(this.keySet());
 		vars.addAll(update.keySet());
 		
 		for(String v: vars) {
-			sigma.put(v, analysis.get(v).lub(update.get(v)));
+			sigma.put(v, this.get(v).lub(update.get(v)));
 		}
 		 
-		return new ContextualState(sigma);
+		return sigma;
 	}
-
-	@Override
-	boolean lessThan(ContextualState u, ContextualState a) {
-		State analysis = a.theState;
-		State update = u.theState;
-		
-		
+	
+	boolean lessThan(State analysis) {
 		boolean ret = true;
 		
 		List<String> vars = new ArrayList<String>();
 		vars.addAll(analysis.keySet());
-		vars.addAll(update.keySet());
+		vars.addAll(this.keySet());
 		
 		for(String v: vars) {
 			
-			if (!update.get(v)
+			if (!this.get(v)
 					.lessThan(
 					analysis.get(v))) {
 				ret = false; break;
 			}
 		}
-		ret = ret && update.defaultZ.lessThan(analysis.defaultZ);
+		ret = ret && this.defaultZ.lessThan(analysis.defaultZ);
+		return ret;
+	}
+}
+
+class Context extends GenericContext<Label> {
+	Context() { super(); }
+	Context(Context that) { super(that); }
+	
+	Context addCallString(Label l_c) {
+		Context ret = new Context(this);
+		ret.addCallStringToSelf(l_c);
 		return ret;
 	}
 	
-	ConstantPropagation2(Statement entry) {
+	public static final int k = 1;
+	int getK() { return k; }
+}
+
+class ContextualState extends HashMap<Context, State> {
+	private static final long serialVersionUID = 1L;
+	
+	public String toString() {
+		String ret = "";
+		for(Context c: this.keySet()) {
+			ret += c + " -> " + this.get(c) + "\t\t\t";
+		}
+		return ret;
+	}
+}
+
+public class ConstantPropagation extends InterDFA<ContextualState> {
+
+	@Override
+	ContextualState lub(ContextualState analysis, ContextualState update) {
+		ContextualState cs = new ContextualState();
+		
+		for(Context c : update.keySet()) {
+			if (analysis.containsKey(c)) {
+				cs.put(c, analysis.get(c).lub(update.get(c)));
+			} else {
+				cs.put(c, update.get(c));
+			}
+		}
+		for(Context c : analysis.keySet()) {
+			if (!update.containsKey(c)) {
+				cs.put(c, analysis.get(c));
+			}
+		}
+		
+		return cs;
+	}
+
+	@Override
+	boolean lessThan(ContextualState update, ContextualState analysis) {
+		boolean ret = true;
+		
+		for(Context c: update.keySet()) {
+			if (analysis.containsKey(c)) {
+				if (!update.get(c).lessThan(analysis.get(c))) {
+					ret = false;
+					break;
+				}
+			} else {
+				ret = false;
+				break;
+			}
+		}
+		
+		
+		return ret;
+	}
+	
+	ConstantPropagation(Statement entry) {
 		CFG cfg = new CFG();
 		entry.accept(new LabelVisitor(cfg));
 		entry.accept(new CFGVisitor(cfg));
@@ -165,39 +242,106 @@ public class ConstantPropagation2 extends InterDFA<ContextualState> {
 		this.labels = cfg.f_labels.get(entry);
 		
 		this.flow = cfg.f_flow.get(entry);
-		this.bottom = State.getBottomState();
+
+		this.bottom = new ContextualState();
 		 
 		this.extremal_labels = new CSet<Label>(cfg.f_init.get(entry));
-		this.extremal_value = State.getTopState();
+		
+		
+		ContextualState iota = new ContextualState();
+		iota.put(new Context(), State.getTopState());
+		
+		this.extremal_value = iota;
 	}
 	
 	
 }
 
+
+ 
+
+
 interface Function<Arg, Res> { Res apply(Arg arg); }
 interface Function2<Arg, Arg2, Res> { Function<Arg2, Res> apply(Arg arg); }
-interface Function3<Arg, Arg2, Arg3, Res> { Function2<Arg2, Arg3, Res> apply(Arg arg); }
 
+// State -> State
+interface CP_Fun1 extends Function<State, State> {}
+// (state X State) -> State
+interface CP_Fun2 { State apply(State sigma1, State sigma2); }
 
-//CP_Fun_hat : (Lab -> ContextualState) -> ContextualState
+//CP_Fun : (Lab -> (Context -> State)) -> (Context -> State)
 abstract class CP_Fun_hat implements TF_Function<ContextualState> {
 	 
-	//A_CP: AExp -> ContextualState -> State -> ExtInt
-	Function3<Expression,ContextualState, State, ExtInt> a_cp = new Function3<Expression, ContextualState, State, ExtInt>() {
-		public Function2<ContextualState,State, ExtInt> apply(final Expression exp) {
-			return new Function2<ContextualState, State, ExtInt>() {
-				public Function<State, ExtInt> apply(final ContextualState cs) {
-					return new Function<State, ExtInt>() {
-						public ExtInt apply(State sigma) {
-							A_CP_Visitor v = new A_CP_Visitor(sigma);
-							exp.accept(v);
-							return v.A_CP.get(exp);
-						}
-					};
+	//A_CP: AExp -> State -> ExtInt
+	static Function2<Expression, State, ExtInt> a_cp = new Function2<Expression, State, ExtInt>() {
+		public Function<State, ExtInt> apply(final Expression exp) {
+			return new Function<State, ExtInt>() {
+				public ExtInt apply(State sigma) {
+					A_CP_Visitor v = new A_CP_Visitor(sigma);
+					exp.accept(v);
+					return v.A_CP.get(exp);
 				}
 			};
 		}
 	};
+	
+	 
+	static CP_Fun_hat getIntraFunction(final Label ell, final CP_Fun1 f) {
+		return new CP_Fun_hat() {
+			public ContextualState apply(Analysis<ContextualState> analysis) {
+				ContextualState old = analysis.get(ell);
+				ContextualState cs = new ContextualState();
+
+				for(Context c : old.keySet()) {
+					cs.put(c, f.apply(old.get(c)));
+				}
+				return cs;
+			}
+		};
+	}
+
+	static CP_Fun_hat getInterFunction_l_c(final Label l_c, final CP_Fun1 f) {
+		return new CP_Fun_hat() {
+			public ContextualState apply(Analysis<ContextualState> analysis) {
+				ContextualState old = analysis.get(l_c);
+				ContextualState cs = new ContextualState();
+
+				for(Context c : old.keySet()) {
+
+					// delta' -> lub of f(sigma), for all delta such that delta::l_c = delta' and delta -> sigma
+					Context c1 = c.addCallString(l_c);
+					State s = cs.get(c1);
+
+					if (s == null) {
+						cs.put(c1, f.apply(old.get(c))); 
+					} else {
+						cs.put(c1, s.lub(f.apply(old.get(c))));
+					}
+				}
+
+				return cs;
+			}
+		};
+	}
+
+	static CP_Fun_hat getInterFunction_l_r(final Label l_c, final Label l_r, final CP_Fun2 f2) {
+		return new CP_Fun_hat() {
+			public ContextualState apply(Analysis<ContextualState> analysis) {
+				ContextualState cs_l_c = analysis.get(l_c);
+				ContextualState cs_l_r = analysis.get(l_r);
+				ContextualState cs = new ContextualState();
+
+				for(Context c : cs_l_c.keySet()) {
+					State sigma2 = cs_l_r.get(c.addCallString(l_c));
+
+					if (sigma2 != null)
+						cs.put(c, f2.apply(cs_l_c.get(c), sigma2));
+				}
+
+				return cs;
+			}
+		};
+	}
 	
 	static CP_Fun_hat getIdFunction(final Label ell) {
 		return new CP_Fun_hat() {
@@ -205,64 +349,76 @@ abstract class CP_Fun_hat implements TF_Function<ContextualState> {
 		};
 	}
 	
-	
 	static CP_Fun_hat getReturnFunction(final Label ell, final Expression exp) {
-		return new CP_Fun_hat() {
-			public ContextualState apply(Analysis<ContextualState> analysis) {
-				return analysis.g
-				return analysis.get(ell).setReturnVar(a_cp.apply(exp).apply(analysis.get(ell)));
+		CP_Fun1 f = new CP_Fun1() {
+			public State apply(State state) {
+				return state.setReturnVar(a_cp.apply(exp).apply(state));
 			}
+
 		};
+
+		return getIntraFunction(ell, f);	
 	}
+	
 	static CP_Fun_hat getVarDecFunction(final Label ell, final String var) {
-		return new CP_Fun_hat() {
-			public ContextualState apply(Analysis<ContextualState> analysis) {
-				return analysis.get(ell).update(context,var, Top.getTop());
+		CP_Fun1 f = new CP_Fun1() {
+			public State apply(State state) {
+				return state.update(var, Top.getTop());
 			}
+
 		};
+
+		return getIntraFunction(ell, f);	
 	}
-	static CP_Fun_hat getAssignFunction(final Context ct, final Label ell, final String var, final Expression exp) {
-		return new CP_Fun_hat() {
-			public ContextualState apply(Analysis<ContextualState> analysis) {
-				return analysis.get(ell).update(context,var, a_cp.apply(exp).apply(analysis.get(ell)));
+	static CP_Fun_hat getAssignFunction(final Label ell, final String var, final Expression exp) {
+		CP_Fun1 f = new CP_Fun1() {
+			public State apply(State state) {
+				return state.update(var, a_cp.apply(exp).apply(state));
 			}
+
 		};
+
+		return getIntraFunction(ell, f);	
 	}
-	static CP_Fun_hat getCallFunction(final Context ct, final Label ell, final List<Expression> args, final FunctionDec functionDec) {
-		return new CP_Fun_hat() {
-			public ContextualState apply(Analysis<ContextualState> analysis) {
+	static CP_Fun_hat getCallFunction(final Label l_c, final List<Expression> args, final FunctionDec functionDec) {
+		 
+		CP_Fun1 f = new CP_Fun1() {
+			public State apply(State state) {
 				List<String> params = functionDec.function.parameters;
-				State sigma = analysis.get(ell);
+				 
 				List<ExtInt> argsZ = new ArrayList<ExtInt>();
-				for(Expression a : args) argsZ.add(a_cp.apply(a).apply(sigma));
+				for(Expression a : args) argsZ.add(a_cp.apply(a).apply(state));
 				
-				return sigma.update(params, argsZ);
+				return state.update(params, argsZ);
 			}
 		};
+
+		return getInterFunction_l_c(l_c, f);	
 	}
-	static CP_Fun_hat getCallRetFunction(final Context ct, final Label l_c, final Label l_r, final String lhs,
+	static CP_Fun_hat getCallRetFunction(final Label l_c, final Label l_r, final String lhs,
 			final FunctionDec functionDec, final List<String> localVars) {
-		
-		return new CP_Fun_hat() {
-			public ContextualState apply(Analysis<ContextualState> analysis) {
+			
+		CP_Fun2 f2 = new CP_Fun2() {
+			public State apply(State sigma1, State sigma2) {
 				List<String> params = functionDec.function.parameters;
 				localVars.addAll(params);
 				 
-				return analysis.get(l_r).update(context, lhs, localVars, analysis.get(l_c));
+				return sigma2.update(lhs, localVars, sigma1);
 			}
 		};
+
+		return getInterFunction_l_r(l_c, l_r, f2);	
 	}
 }
 
 
-
-class CP_Visitor_Context_Sen extends WhileLangVisitor {
+class CP_Visitor extends WhileLangVisitor {
 	// constant propagation's transfer functions: Lab -> CP_Function
 	Map<Label, TF_Function<ContextualState>> f = new HashMap<Label, TF_Function<ContextualState>>();
 	
 	CFG cfg;
 	
-	CP_Visitor_Context_Sen(CFG cfg) {
+	CP_Visitor(CFG cfg) {
 		this.cfg = cfg;
 	}
 	
@@ -276,7 +432,6 @@ class CP_Visitor_Context_Sen extends WhileLangVisitor {
 	public void visit(ExpressionStmt s) {   
 		if (this.isAssignment(s)) {
 			final AssignmentExpr a = (AssignmentExpr) s.expr;
-			final Context ct = new Context(1,s.label);
 			
 			// make sure lhs of a is a variable
 			assertLValueVar(a.lValue, a);
@@ -291,16 +446,17 @@ class CP_Visitor_Context_Sen extends WhileLangVisitor {
 				 }
 				 FunctionDec functionDec = (FunctionDec) l_n.stmt;
 		
-				 f.put(s.label, CP_Fun_hat.getCallFunction(ct,s.label, c.arguments, functionDec));
+				 f.put(s.label, CP_Fun_hat.getCallFunction(s.label, c.arguments, functionDec));
+				 
 				 CSet<VarDecStmt> varDecs = cfg.varDecs(functionDec.function.body);
 				 List<String> vars = new ArrayList<String>();
 				 for(VarDecStmt vd : varDecs) vars.add(vd.variable);
 				 
-				 f.put(s.label2, CP_Fun_hat.getCallRetFunction(ct,s.label, s.label2, x, functionDec, vars));
+				 f.put(s.label2, CP_Fun_hat.getCallRetFunction(s.label, s.label2, x, functionDec, vars));
 			 } 
 			 // rhs is anything but any function call
 			 else {
-				 f.put(s.label, CP_Fun_hat.getAssignFunction(ct,s.label, x, a.rValue));
+				 f.put(s.label, CP_Fun_hat.getAssignFunction(s.label, x, a.rValue));
 			 }
 			
 			
@@ -332,6 +488,8 @@ class CP_Visitor_Context_Sen extends WhileLangVisitor {
 		f.put(s.label, CP_Fun_hat.getReturnFunction(s.label, s.expr));
 	}
 }
+
+
 
 // State -> AExp -> ExtInt
 class A_CP_Visitor extends WhileLangVisitor {
@@ -408,318 +566,5 @@ class A_CP_Visitor extends WhileLangVisitor {
 			ret = new Int(z);
 		}
 		return ret;
-	}
-}
-
-
-
-
-/*
- * 
- * 
- * 
- * 
- ************************** ORIGINAL CODE************************
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- */
-//sigma: Var -> ExtInt (Z + top + bottom)
-class State extends HashMap<String, ExtInt> {
-	private static final long serialVersionUID = 1L;
-	
-	final ExtInt defaultZ;
-	private State(ExtInt defaultZ) { this.defaultZ = defaultZ; }	
-	static State getTopState() { return new State(Top.getTop()); }
-	static State getBottomState() { return new State(Bottom.getBottom()); }
-	
-	State(State that) { super(that); this.defaultZ = that.defaultZ; }
-	
-	ExtInt getDefault() { return defaultZ; }
-	
-	public String toString() {
-		String ret = "[";
-		for(String var : keySet()) {
-			ret += var + ": " + get(var) + " ";
-		}
-		return ret + "]";
-	}
-	
-	State update(String x, ExtInt z) {
-		State s = new State(this);
-		s.put(x, z);
-		return s;
-	}
-	State update(List<String> params, List<ExtInt> args) {
-		State s = new State(this);
-		for (int i=0; i<params.size()&&i<args.size(); i++) s.put(params.get(i), args.get(i));
-		return s;
-	}
-	State update(String lhs, List<String> localVars, State sigma1) {
-		State s = new State(this);
-		// write return value back to lhs variable
-		s.put(lhs, s.get(RET_VAR));
-
-		localVars.add(RET_VAR);
-		
-		// reset any variables that are shadowed by the local variables/parameters of the called function
-		for(String var : localVars) {
-			if(sigma1.containsKey(var)) {
-				s.put(var, sigma1.get(var));
-			} else {
-				s.remove(var);
-			}
-		}
-		return s;
-	}
-	
-	public ExtInt put(String var, ExtInt z) {
-		return super.put(var, z);
-	}
-	
-	public ExtInt get(Object var) {
-		ExtInt ret = defaultZ;
-		if (this.containsKey(var)) ret = super.get(var);
-		return ret;
-	}
-	
-	// not a legal variable name, we use it for function return value
-	private final static String RET_VAR = "0__ret"; 
-	State setReturnVar(ExtInt z) { 
-		State s = new State(this);
-		s.put(RET_VAR, z); 
-		return s;
-	}
-	ExtInt getReturnVar() { return get(RET_VAR); }
-}
-
-public class ConstantPropagation extends InterDFA<State> {
-
-	@Override
-	State lub(State analysis, State update) {
-		ExtInt defaultZ = analysis.getDefault().lub(update.getDefault());
-		State sigma; 
-		if (defaultZ == Top.getTop()) sigma = State.getTopState();
-		else sigma = State.getBottomState();
-		
-		List<String> vars = new ArrayList<String>();
-		vars.addAll(analysis.keySet());
-		vars.addAll(update.keySet());
-		
-		for(String v: vars) {
-			sigma.put(v, analysis.get(v).lub(update.get(v)));
-		}
-		 
-		return sigma;
-	}
-
-	@Override
-	boolean lessThan(State update, State analysis) {
-		boolean ret = true;
-		
-		List<String> vars = new ArrayList<String>();
-		vars.addAll(analysis.keySet());
-		vars.addAll(update.keySet());
-		
-		for(String v: vars) {
-			
-			if (!update.get(v)
-					.lessThan(
-					analysis.get(v))) {
-				ret = false; break;
-			}
-		}
-		ret = ret && update.defaultZ.lessThan(analysis.defaultZ);
-		return ret;
-	}
-	
-	ConstantPropagation(Statement entry) {
-		CFG cfg = new CFG();
-		entry.accept(new LabelVisitor(cfg));
-		entry.accept(new CFGVisitor(cfg));
-		
-		CP_Visitor cpv = new CP_Visitor(cfg);
-		entry.accept(cpv);
-		 
-		this.f = cpv.f;
-		
-		cfg.setLabels();
-		this.labels = cfg.f_labels.get(entry);
-		
-		this.flow = cfg.f_flow.get(entry);
-		this.bottom = State.getBottomState();
-		 
-		this.extremal_labels = new CSet<Label>(cfg.f_init.get(entry));
-		this.extremal_value = State.getTopState();
-	}
-	
-	
-}
-
-
-//CP_Fun : (Lab -> State) -> State
-abstract class CP_Fun implements TF_Function<State> {
-	 
-	//A_CP: AExp -> State -> ExtInt
-	Function2<Expression, State, ExtInt> a_cp = new Function2<Expression, State, ExtInt>() {
-		public Function<State, ExtInt> apply(final Expression exp) {
-			return new Function<State, ExtInt>() {
-				public ExtInt apply(State sigma) {
-					A_CP_Visitor v = new A_CP_Visitor(sigma);
-					exp.accept(v);
-					return v.A_CP.get(exp);
-				}
-			};
-		}
-	};
-	
-	static CP_Fun getIdFunction(final Label ell) {
-		return new CP_Fun() {
-			public State apply(Analysis<State> arg) { return arg.get(ell); }
-		};
-	}
-	// TODO what you need to do
-	
-	
-	static CP_Fun getReturnFunction(final Label ell, final Expression exp) {
-		return new CP_Fun() {
-			public State apply(Analysis<State> analysis) {
-				// TODO all these interprocedural 
-				// for all these contextual state, 
-				// for eaxh context in the old contextual state
-				// we need to update the context that map the to the new contexual state
-				
-				//TODO: need to know what is transfer function
-				// TODO : Need to nknow what is simar1, sigmar2
-				
-				return analysis.get(ell).setReturnVar(a_cp.apply(exp).apply(analysis.get(ell)));
-			}
-		};
-	}
-	static CP_Fun getVarDecFunction(final Label ell, final String var) {
-		return new CP_Fun() {
-			public State apply(Analysis<State> analysis) {
-				return analysis.get(ell).update(var, Top.getTop());
-			}
-		};
-	}
-	static CP_Fun getAssignFunction(final Label ell, final String var, final Expression exp) {
-		return new CP_Fun() {
-			public State apply(Analysis<State> analysis) {
-				return analysis.get(ell).update(var, a_cp.apply(exp).apply(analysis.get(ell)));
-			}
-		};
-	}
-	static CP_Fun getCallFunction(final Label ell, final List<Expression> args, final FunctionDec functionDec) {
-		return new CP_Fun() {
-			public State apply(Analysis<State> analysis) {
-				List<String> params = functionDec.function.parameters;
-				State sigma = analysis.get(ell);
-				List<ExtInt> argsZ = new ArrayList<ExtInt>();
-				for(Expression a : args) argsZ.add(a_cp.apply(a).apply(sigma));
-				
-				return sigma.update(params, argsZ);
-			}
-		};
-	}
-	static CP_Fun getCallRetFunction(final Label l_c, final Label l_r, final String lhs,
-			final FunctionDec functionDec, final List<String> localVars) {
-		
-		return new CP_Fun() {
-			public State apply(Analysis<State> analysis) {
-				List<String> params = functionDec.function.parameters;
-				localVars.addAll(params);
-				 
-				return analysis.get(l_r).update(lhs, localVars, analysis.get(l_c));
-			}
-		};
-	}
-}
-
-
-class CP_Visitor extends WhileLangVisitor {
-	// constant propagation's transfer functions: Lab -> CP_Function
-	Map<Label, TF_Function<State>> f = new HashMap<Label, TF_Function<State>>();
-	
-	CFG cfg;
-	
-	CP_Visitor(CFG cfg) {
-		this.cfg = cfg;
-	}
-	
-	public void visit(BlockStmt s) { 
-		for(Statement stmt: s.statements) stmt.accept(this); 
-	}
-	public void visit(EmptyStmt s) { f.put(s.label, CP_Fun.getIdFunction(s.label));  }
-	
-	// regular assignment: x = e
-	// function call x = f(e)
-	public void visit(ExpressionStmt s) {   
-		if (this.isAssignment(s)) {
-			final AssignmentExpr a = (AssignmentExpr) s.expr;
-			
-			// make sure lhs of a is a variable
-			assertLValueVar(a.lValue, a);
-			final String x = ((VarAccessExpr) a.lValue).name;
-			
-			 if (this.isFunctionCallExpr(a)) {
-				 final FunctionCallExpr c = (FunctionCallExpr) a.rValue;
-				 
-				 Label l_n = cfg.get_l_n(s.label);
-				 if (l_n == null) {
-					 log(ERROR, "called function is not declared", s);
-				 }
-				 FunctionDec functionDec = (FunctionDec) l_n.stmt;
-		
-				 f.put(s.label, CP_Fun.getCallFunction(s.label, c.arguments, functionDec));
-				 CSet<VarDecStmt> varDecs = cfg.varDecs(functionDec.function.body);
-				 List<String> vars = new ArrayList<String>();
-				 for(VarDecStmt vd : varDecs) vars.add(vd.variable);
-				 
-				 f.put(s.label2, CP_Fun.getCallRetFunction(s.label, s.label2, x, functionDec, vars));
-			 } 
-			 // rhs is anything but any function call
-			 else {
-				 f.put(s.label, CP_Fun.getAssignFunction(s.label, x, a.rValue));
-			 }
-			
-			
-		}
-	}
-
-	public void visit(WhileStmt s) {  
-		f.put(s.label, CP_Fun.getIdFunction(s.label));
-		s.body.accept(this);
-	}
-	public void visit(IfStmt s) { 
-		f.put(s.label, CP_Fun.getIdFunction(s.label));
-		s.thenPart.accept(this);
-		if (s.hasElse()) s.elsePart.accept(this);
-	}
-	
-	// function declaration
-	public void visit(FunctionDec s) {  
-		s.function.body.accept(this);
-		
-		f.put(s.label, CP_Fun.getIdFunction(s.label));
-		f.put(s.label2, CP_Fun.getIdFunction(s.label2));
-	}
-	
-	public void visit(VarDecStmt s) {
-		f.put(s.label, CP_Fun.getVarDecFunction(s.label, s.variable));
-	}
-	public void visit(ReturnStmt s) {   
-		f.put(s.label, CP_Fun.getReturnFunction(s.label, s.expr));
 	}
 }

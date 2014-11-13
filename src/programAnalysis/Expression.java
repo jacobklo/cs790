@@ -1,6 +1,7 @@
 package programAnalysis;
 
 import java.util.List;
+import java.util.Set;
 
 import org.mozilla.javascript.ast.AstNode;
 
@@ -33,14 +34,50 @@ abstract class Expression {
 	}
 }
 
-class ParenthesizedExpr extends Expression {
-	final Expression expr;
-	ParenthesizedExpr(Expression expr) { this.expr = expr; }
-	 
-	public void accept(Visitor v) { v.visit(this); }
-}
+//class ParenthesizedExpr extends Expression {
+//	final Expression expr;
+//	ParenthesizedExpr(Expression expr) { this.expr = expr; }
+//	 
+//	public void accept(Visitor v) { v.visit(this); }
+//}
 
 class FunctionExpr extends Expression  {
+	/* Begin of variable addition */
+	private List<Variable> variables;
+	
+	void setParameterVariables(List<Variable> variables) {
+		this.variables = variables;
+	}
+	List<Variable> getParameterVariables() {
+		if (variables == null) Logger.error("Parameters of the function have not yet been resolved");
+		return variables;
+	}	
+	
+	private Variable functionNameVariable;
+	void setFunctionNameVariable(Variable variable) {
+		functionNameVariable = variable;
+	}
+	Variable getFunctionNameVariable() {
+		if (!hasName() || functionNameVariable == null) 
+			Logger.error("The function has no name or it has not yet been resolved");
+		return functionNameVariable;
+	}
+	private Set<Variable> fv;
+	Set<Variable> getFreeVariables() {
+		if (fv == null) Logger.error("The free variables haven't been collected yet");
+		return fv;
+	}
+	void setFreeVariables(Set<Variable> fv) { this.fv = fv; }
+	
+	private Set<Expression> returnExpressions;
+	Set<Expression> getReturnExpressions() { 
+		if (returnExpressions == null) Logger.error("The return expressions have not been collected yet");
+		return returnExpressions; 
+	}
+	void setReturnExpressions(Set<Expression> exprs) { this.returnExpressions = exprs; }
+	
+	/* End of variable addition */
+	
 	final String name;
     final List<String> parameters;
     final Statement body;
@@ -87,6 +124,18 @@ class AssignmentExpr extends Expression {
 }
 
 class VarAccessExpr extends Expression {
+	/* Begin of variable addition */
+	
+	private Variable variable; // resolved variable
+	void setVariable(Variable variable) { this.variable = variable; }
+	Variable getVariable() {
+		if (variable == null) {
+			Logger.error("variable " + name + " is not yet resolved");
+		}
+		return this.variable; 
+	}
+	/* End of variable addition */
+	
 	final String name;
 	 
 	VarAccessExpr (String name) {

@@ -40,9 +40,9 @@ public class AnalysisTest {
 	} 
 	
 	public static String projPath = "analysis/";
-	/*
+	
 	@Test
-	public void testFile() {
+	public void testCFG() {
  
 		String f = "cfg/polymorphic.js";
 		
@@ -221,10 +221,10 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	*/
+	
 	@Test
-	public void test0CFA() {
-		String f = "cfg/fun.js";
+	public void testCFA() {
+		String f = "cfg/recursive.js";
 		
 		Context context = Context.enter();
 		Parser parser = getParser(context);
@@ -233,31 +233,10 @@ public class AnalysisTest {
 			AstRoot ast = parseFromFile(projPath + f, parser);
 			Statement s = new StatementVisitor().visit(ast);
 			
-			CFA cfa = new CFA(s);
+			K_CFA cfa = new K_CFA(s);
 			cfa.worklist();
 			
-			List<Label_E> labels = new ArrayList<Label_E>(cfa.cache.keySet());
-			Collections.sort(labels);
-			
-			System.out.println("==== labelled expressions ====");
-			
-			for(Label_E l : labels) {
-				System.out.println(l + " : " + cfa.labelledExp.get(l));
-			}
-			
-			System.out.println("==== cache ====");
-			for(Label_E l : labels) {
-				System.out.print(l + " : ");
-				for(FunctionExpr d :cfa.cache.get(l).d) System.out.print(d.label + " ");
-				System.out.println();
-			}
-			
-			System.out.println("==== env ====");
-			for(String x : cfa.env.keySet()) {
-				System.out.print(x + " : ");
-				for(FunctionExpr d :cfa.env.get(x).d) System.out.print(d.label + " "); 
-				System.out.println();
-			}
+			System.out.println(cfa.print());
 			
 		} catch(IOException e) {
 			System.out.println(e);

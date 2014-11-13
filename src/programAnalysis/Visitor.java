@@ -15,7 +15,7 @@ public class Visitor {
 	public void visit(LoopStmt s) { }
 	public void visit(ReturnStmt s) { }
 	public void visit(ScriptStmt s) { }
-	// should not visit abstract statement but included for completeness
+// should not visit abstract statement but included for completeness
 //	public void visit(Statement s) { }
 	public void visit(SwitchStmt s) { }
 	public void visit(ThrowStmt s) { }
@@ -34,7 +34,7 @@ public class Visitor {
 	public void visit(DeleteExpr e) { }
 	public void visit(EmptyExpr e) { }
 	public void visit(EqualityExpr e) { }
-	// should not visit abstract expression but included for completeness 
+// should not visit abstract expression but included for completeness 
 //	public void visit(Expression e) { }
 	public void visit(FunctionExpr e) { }
 	public void visit(FunctionCallExpr e) { }
@@ -51,7 +51,7 @@ public class Visitor {
 	public void visit(NumericExpr e) { }
 	public void visit(ObjectExpr e) { }
 //	public void visit(ObjProperty e) { }
-	public void visit(ParenthesizedExpr e) { }
+//	public void visit(ParenthesizedExpr e) { } // we don't have this anymore
 	public void visit(RegExpExpr e) { }
 	public void visit(ShallowEqualityExpr e) { }
 	public void visit(StringExpr e) { }
