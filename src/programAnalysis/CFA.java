@@ -350,6 +350,8 @@ class ConstraintVisitor extends FunLangVisitor {
 		constraints.add(new ConcreteConstraint(new Term(e), c));
 
 		// function f(x) { s }
+		// TODO check here, it said this is delay to the Call Constraint class
+		
 		if (e.name != null) {
 			constraints.add(new ConcreteConstraint(new Term(e), env.get(e.getFunctionNameVariable())));
 		}

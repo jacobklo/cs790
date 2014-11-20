@@ -37,7 +37,7 @@ public class K_CFA extends AbstractCFA {
 
 class Closure extends Term {
 	private final ContextEnv ce;
-	
+	// contains function Term and ContextEnv
 	Closure(FunctionExpr f, ContextEnv ce) {
 		super(f); this.ce = ce;
 	}
@@ -70,9 +70,9 @@ class CallConstraint extends Constraint {
 	final Set<Term> processedTerms = new HashSet<Term>(); // memoize the known functions in c1.d
 	
 	CallConstraint (SetVar c, SetVar c1, List<SetVar> c2_list, 
-																K_Context delta_0, 
-																K_Cache cache, K_Env env,
-																Set<CallAbstraction> cachedCalls) {
+						K_Context delta_0, 
+						K_Cache cache, K_Env env,
+						Set<CallAbstraction> cachedCalls) {
 		this.c = c; this.c1 = c1; this.c2_list = c2_list; 
 		this.delta_0 = delta_0; 
 		this.cache = cache; this.env = env;
@@ -228,7 +228,7 @@ class CallAbstraction {
 	final ContextEnv ce;
 	final K_Context delta;
 	final Label_E ell;
-	
+	// --- how many unit in this to pervent inifint loop
 	CallAbstraction(ContextEnv ce, K_Context delta, Label_E ell) {
 		this.ce = ce; this.delta = delta; this.ell = ell;
 	}
