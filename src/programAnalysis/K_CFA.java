@@ -94,9 +94,20 @@ class CallConstraint extends Constraint {
 			
 				// 
 				// TODO: 1. generate constraints related to the call to the function t.f
+				CSet<Constraint> cs = new CSet<Constraint>();
+				for (SetVar sv2 : c2_list){
+					if ( sv2.d.contains(t) ){
+						cs.addAll(sv2.e);
+					}
+				}
 				//       2. use a new constraint visitor to collect constraints for the body of t.f
+				K_ConstraintVisitor kcv = new K_ConstraintVisitor(t.getContextEnv(), delta_0, cache, env, cachedCalls);
+				t.f.accept(kcv);
 				//	 3. put the new constraints in "constraints" variable
-				//
+				constraints.addAll(cs);
+				constraints.addAll(kcv.constraints);
+				
+				
 			}
 		}
 		

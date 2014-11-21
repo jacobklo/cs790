@@ -393,7 +393,6 @@ class ConstraintVisitor extends FunLangVisitor {
 		e.right.accept(this);
 	}
 	
-
 	
 }
 
