@@ -1,6 +1,7 @@
 package programAnalysis;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,7 +23,10 @@ public class K_CFA extends AbstractCFA {
 		return cv.constraints;
 	}
  
-	String printCache(List<Label_E> labels) {
+	String printCache() {
+		List<Label_E> labels = new ArrayList<Label_E>(cv.cache.keySet());
+		Collections.sort(labels);
+		
 		String out = "";
 		for(Label_E l : labels) out += l + " : " + cv.cache.get(l) + nl;
 		return out;
@@ -35,26 +39,7 @@ public class K_CFA extends AbstractCFA {
 	}
 }
 
-class Closure extends Term {
-	private final ContextEnv ce;
-	// contains function Term and ContextEnv
-	Closure(FunctionExpr f, ContextEnv ce) {
-		super(f); this.ce = ce;
-	}
-	public String toString() { return "cls(" + f.label + ", " + ce + ")"; }
-	
-	public boolean equals(Object that) {
-		boolean ret = false;
-		if (that instanceof Closure) {
-			Closure t = (Closure) that;
-			ret = f.equals(t.f) && ce.equals(t.ce);
-		}
-		return ret;
-	}
-	public int hashCode() { return f.hashCode() + ce.hashCode(); }
-	
-	ContextEnv getContextEnv() { return ce; }
-}
+
 
 // For function call of the form ( t_1^{ell_1} t_2^{ell_2} )^ell
 // For each t in C(ell_1, delta).d => generate constraints for t (t_2)
@@ -67,12 +52,12 @@ class CallConstraint extends Constraint {
 	final K_Env env;
 	final Set<CallAbstraction> cachedCalls;
 	
-	final Set<Term> processedTerms = new HashSet<Term>(); // memoize the known functions in c1.d
+	final Set<Closure> processedTerms = new HashSet<Closure>(); // memoize the known functions in c1.d
 	
 	CallConstraint (SetVar c, SetVar c1, List<SetVar> c2_list, 
-						K_Context delta_0, 
-						K_Cache cache, K_Env env,
-						Set<CallAbstraction> cachedCalls) {
+																K_Context delta_0, 
+																K_Cache cache, K_Env env,
+																Set<CallAbstraction> cachedCalls) {
 		this.c = c; this.c1 = c1; this.c2_list = c2_list; 
 		this.delta_0 = delta_0; 
 		this.cache = cache; this.env = env;
@@ -88,26 +73,15 @@ class CallConstraint extends Constraint {
 	void iter(WorkList w) {
 		CSet<Constraint> constraints = new CSet<Constraint>();
 		
-		for(Term t : c1.d) {
-			if (!processedTerms.contains(t)) {
-				processedTerms.add(t);
-			
-				// 
-				// TODO: 1. generate constraints related to the call to the function t.f
-				CSet<Constraint> cs = new CSet<Constraint>();
-				for (SetVar sv2 : c2_list){
-					if ( sv2.d.contains(t) ){
-						cs.addAll(sv2.e);
-					}
+		for(AbstractValue v : c1.d) {
+			if (v.isClosure()) {
+				Closure t = v.asClosure();
+				
+				if (!processedTerms.contains(t)) {
+					processedTerms.add(t);
+
+					// Withhold for now ...
 				}
-				//       2. use a new constraint visitor to collect constraints for the body of t.f
-				K_ConstraintVisitor kcv = new K_ConstraintVisitor(t.getContextEnv(), delta_0, cache, env, cachedCalls);
-				t.f.accept(kcv);
-				//	 3. put the new constraints in "constraints" variable
-				constraints.addAll(cs);
-				constraints.addAll(kcv.constraints);
-				
-				
 			}
 		}
 		
@@ -168,58 +142,8 @@ class ContextEnv {
 	}
 }
 
-class ContextSetVar {
-	private Map<K_Context, SetVar> map = new HashMap<K_Context, SetVar>();
-	String name;
-	
-	ContextSetVar(String name) { this.name = name; }
-	
-	SetVar get(K_Context delta) {
-		SetVar ret = map.get(delta);
-		if (ret == null) {
-			ret = new SetVar(name + "/" + delta);
-			map.put(delta, ret);
-		}
-		
-		return ret;
-	}
-	
-	public String toString() {
-		String ret = "{ ";
 
-		int i = 0;
-		
-		for(K_Context k : map.keySet()) {
-			ret += k + " -> " + map.get(k);
-			i++;
-			if (i < map.size()) ret += ", ";
-		}
-		
-		return ret + " }";
-	}
-}
 
-class K_Cache extends AbstractCache<ContextSetVar> {
-	@Override
-	ContextSetVar makeSetVar(String name) {
-		return new ContextSetVar(name);
-	}	
-	
-	SetVar get(Label_E ell, K_Context delta) {
-		return get(ell).get(delta);
-	}
-}
-
-class K_Env extends AbstractEnv<ContextSetVar> {
-	@Override
-	ContextSetVar makeSetVar(String name) {
-		return new ContextSetVar(name);
-	}	
-	
-	SetVar get(Variable x, K_Context delta) {
-		return get(x).get(delta);
-	}
-}
 
 class K_Context  extends GenericContext<Label_E> {
 	K_Context() { super(); }
@@ -239,7 +163,7 @@ class CallAbstraction {
 	final ContextEnv ce;
 	final K_Context delta;
 	final Label_E ell;
-	// --- how many unit in this to pervent inifint loop
+	
 	CallAbstraction(ContextEnv ce, K_Context delta, Label_E ell) {
 		this.ce = ce; this.delta = delta; this.ell = ell;
 	}
@@ -353,26 +277,11 @@ class K_ConstraintVisitor extends FunLangVisitor {
 	
 		constraints.add(new SubsetConstraint(rx, c));
 	}
-//	// c
-//	public void visit(NumberExpr e) {  }
-//	public void visit(BoolExpr e) {  }
-//	// e op e'
-//	public void visit(AddExpr e) { visitInfix(e); }
-//	public void visit(NumericExpr e) { visitInfix(e); }
-//	public void visit(LogicExpr e) { visitInfix(e); }
-//	public void visit(ComparisonExpr e) { visitInfix(e); }	
-//	// op e
-//	public void visit(NegationExpr e) { visitUnary(e); }
-//	public void visit(LogicNotExpr e) { visitUnary(e); }
-//	
-//	void visitInfix(InfixExpr e) {
-//		e.left.accept(this);
-//		e.right.accept(this);
-//	}
-//	
-//	void visitUnary(UnaryExpr e) {
-//		e.operand.accept(this);
-//	}
+	
+	// c
+	// e op e'
+	// op e
+	 
 }
 
 

@@ -40,7 +40,7 @@ public class AnalysisTest {
 	} 
 	
 	public static String projPath = "analysis/";
-	/*
+	
 	@Test
 	public void testCFG() {
  
@@ -221,9 +221,9 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	*/
+	
 	@Test
-	public void testCFA() {
+	public void test_K_CFA() {
 		String f = "cfg/twice.js";
 		
 		Context context = Context.enter();
@@ -238,6 +238,56 @@ public class AnalysisTest {
 			
 			System.out.println(cfa.print());
 			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
+	
+	@Test
+	public void test_0_CFA() {
+		String f = "cfg/obj.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+			CFA cfa = new CFA(s);
+			cfa.worklist();
+			
+			System.out.println(cfa.print());
+			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
+	
+	
+	@Test
+	public void testVisitor() {
+		String f = "cfg/obj.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+//			s.accept(new FunLangVisitor());
+			
+			Label_E_Visitor v = new Label_E_Visitor();
+			s.accept(v);
+			s.accept(new VariableVisitor());
+			System.out.println(v.print()); 
 		} catch(IOException e) {
 			System.out.println(e);
 		}

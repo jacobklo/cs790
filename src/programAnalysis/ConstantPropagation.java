@@ -442,7 +442,7 @@ class CP_Visitor extends WhileLangVisitor {
 				 
 				 Label l_n = cfg.get_l_n(s.label);
 				 if (l_n == null) {
-					 log(ERROR, "called function is not declared", s);
+					 Logger.error("called function is not declared", s);
 				 }
 				 FunctionDec functionDec = (FunctionDec) l_n.stmt;
 		
@@ -504,7 +504,7 @@ class A_CP_Visitor extends WhileLangVisitor {
 		e.rValue.accept(this);
 		A_CP.put(e, A_CP.get(e.rValue));
 	}
-	public void visit(FunctionCallExpr e) { log(ERROR, NO_evaluation, e); }
+	public void visit(FunctionCallExpr e) { Logger.error( NO_evaluation, e); }
 	public void visit(VarAccessExpr e) { 
 		ExtInt i = Bottom.getBottom();
 		
@@ -534,9 +534,9 @@ class A_CP_Visitor extends WhileLangVisitor {
 	
 		A_CP.put(e, acp(e.op, il, ir));
 	}
-	public void visit(BoolExpr e) { log(ERROR, NO_evaluation, e); }
-	public void visit(LogicExpr e) { log(ERROR, NO_evaluation, e); }
-	public void visit(ComparisonExpr e) { log(ERROR, NO_evaluation, e); }
+	public void visit(BoolExpr e) { Logger.error(NO_evaluation, e); }
+	public void visit(LogicExpr e) { Logger.error(NO_evaluation, e); }
+	public void visit(ComparisonExpr e) { Logger.error(NO_evaluation, e); }
 	public void visit(NegationExpr e) { 
 		e.operand.accept(this);
 		A_CP.put(e, A_CP.get(e.operand));

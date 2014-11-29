@@ -15,7 +15,7 @@ public class Visitor {
 	public void visit(LoopStmt s) { }
 	public void visit(ReturnStmt s) { }
 	public void visit(ScriptStmt s) { }
-// should not visit abstract statement but included for completeness
+//  should not visit abstract statement but included for completeness
 //	public void visit(Statement s) { }
 	public void visit(SwitchStmt s) { }
 	public void visit(ThrowStmt s) { }
@@ -34,7 +34,7 @@ public class Visitor {
 	public void visit(DeleteExpr e) { }
 	public void visit(EmptyExpr e) { }
 	public void visit(EqualityExpr e) { }
-// should not visit abstract expression but included for completeness 
+//  should not visit abstract expression but included for completeness 
 //	public void visit(Expression e) { }
 	public void visit(FunctionExpr e) { }
 	public void visit(FunctionCallExpr e) { }
@@ -44,6 +44,7 @@ public class Visitor {
 	public void visit(InstanceOfExpr e) { }
 	public void visit(Literal e) { }
 	public void visit(LogicExpr e) { }
+	public void visit(MethodCallExpr e) { }
 	public void visit(NegationExpr e) { }
 	public void visit(NewExpr e) { }
 	public void visit(NullExpr e) { }
@@ -53,23 +54,28 @@ public class Visitor {
 //	public void visit(ObjProperty e) { }
 //	public void visit(ParenthesizedExpr e) { } // we don't have this anymore
 	public void visit(RegExpExpr e) { }
+//  object field/method selector e.g. 'f' in {f: e} | e.f | e.f(e') | e.f = e'
+	public void visit(SelectorExpr e) { }
 	public void visit(ShallowEqualityExpr e) { }
 	public void visit(StringExpr e) { }
 	public void visit(TypeOfExpr e) { }
 	public void visit(UnaryExpr e) { }
+	public void visit(UpdateExpr e) { }
 	public void visit(VarAccessExpr e) { }
-	
-	void log(String level, String message, Statement s) {
-		log(level, message, s.node.toSource());
-	}
-	void log(String level, String message, Expression e) {
-		log(level, message, e.node.toSource());
-	}
-	void log(String level, String message, String source) {
-		System.out.println(level + message + "at: \n" + source);
-		if (level == ERROR) System.exit(1);
-	}
-	public static final String WARN = "Warning: ", ERROR = "Error: ";
 }
 
+
+class Logger {
+	static void error(String msg, Statement s) { error(msg + " at\n " + s.node.toSource()); }
+	static void error(String msg, Expression e) { error(msg + " at\n " + e.node.toSource()); }
+	static void error(String msg) { System.out.println(Constant.ERROR + msg); System.exit(-1); }
+	
+	static void warn(String msg, Statement s) { error(msg + " at\n " + s.node.toSource()); }
+	static void warn(String msg, Expression e) { error(msg + " at\n " + e.node.toSource()); }
+	static void warn(String msg) { System.out.println(Constant.WARN + msg); }
+}
+
+class Constant {
+	public static final String WARN = "Warning: ", ERROR = "Error: ", THIS = "this", NULL = "nil";
+}
 

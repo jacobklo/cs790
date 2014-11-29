@@ -339,13 +339,42 @@ public class StatementVisitor {
 		 
 		return ret;
 	}
-	private FunctionCallExpr visitExpression (FunctionCall call) {
+	private Expression visitExpression (FunctionCall call) {
 		List<Expression> arguments = new ArrayList<Expression>();
 		for(AstNode a : call.getArguments()) {
 			arguments.add(visitExpression(a));
 		}
 	
-		return new FunctionCallExpr(visitExpression(call.getTarget()), arguments);
+		Expression target = visitExpression(call.getTarget());
+		
+		Expression ret;
+		
+		if (target instanceof GetExpr) {
+			GetExpr get = (GetExpr) target;
+			ret = new MethodCallExpr(get.getTarget(), get.getProperty(), arguments);
+		} 
+		else {
+			ret = new FunctionCallExpr(target, arguments);
+		}
+		
+		return ret;
+	}
+	private Expression visitExpression (Assignment assign) {
+		
+		Expression target = visitExpression(assign.getLeft());
+		Expression rhs = visitExpression(assign.getRight());
+		
+		Expression ret;
+		
+		if (target instanceof GetExpr) {
+			GetExpr get = (GetExpr) target;
+			ret = new UpdateExpr(get.getTarget(), get.getProperty(), rhs);
+		} 
+		else {
+			ret = new AssignmentExpr(target, rhs);
+		}
+		
+		return ret;
 	}
 	private NewExpr visitExpression (NewExpression newExpr) {
 		List<Expression> arguments = new ArrayList<Expression>();
@@ -358,7 +387,17 @@ public class StatementVisitor {
 	private ObjectExpr visitExpression (ObjectLiteral objExpr) {
 		List<ObjProperty> properties = new ArrayList<ObjProperty>();
 		for(ObjectProperty p : objExpr.getElements()) {
-			properties.add(new ObjProperty(visitExpression(p.getLeft()), visitExpression(p.getRight()), p.isGetter(), p.isSetter()));
+			
+			Expression left;
+			
+			if (p.getLeft() instanceof Name) {
+				left = new SelectorExpr(((Name) p.getLeft()).getIdentifier());
+			} 
+			else {
+				left = visitExpression(p.getLeft());
+			}
+			
+			properties.add(new ObjProperty(left, visitExpression(p.getRight()), p.isGetter(), p.isSetter()));
 		}
 		return new ObjectExpr(properties);
 	}
@@ -394,16 +433,16 @@ public class StatementVisitor {
 			ret = visitExpression((NewExpression) node);
 			break;
 		case Token.ASSIGN:
-			ret = new AssignmentExpr(visitExpression(((Assignment) node).getLeft()), visitExpression(((Assignment) node).getRight()));
+			ret = visitExpression((Assignment) node);
 			break;
 		case Token.NAME:
 			ret = new VarAccessExpr( ((Name) node).getIdentifier() );
 			break;
 		case Token.THIS:
-			ret = new VarAccessExpr( "this" );
+			ret = new VarAccessExpr( Constant.THIS );
 			break;
 		case Token.GETPROP:
-			ret = new GetPropExpr(visitExpression(((PropertyGet) node).getTarget()), ((PropertyGet) node).getProperty().getIdentifier());
+			ret = new GetPropExpr(visitExpression(((PropertyGet) node).getTarget()), new SelectorExpr(((PropertyGet) node).getProperty().getIdentifier()));
 			break;
 			// "left[property]"
 		case Token.GETELEM:

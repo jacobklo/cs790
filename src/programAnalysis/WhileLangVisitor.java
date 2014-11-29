@@ -50,7 +50,7 @@ public class WhileLangVisitor extends Visitor {
 	
 	void assertLValueVar(Expression lhs, Expression e) {
 		if (!(lhs instanceof VarAccessExpr)) {
-			log(ERROR, "lhs of assignment is not a variable", e);
+			Logger.error("lhs of assignment is not a variable", e);
 		}
 	}
 
@@ -136,7 +136,7 @@ class LabelVisitor extends WhileLangVisitor {
 		stmts = filterFunDec(stmts);
 		
 		if (stmts.size() == 0) { 
-			log(WARN, NO_Statement, s);
+			Logger.warn(NO_Statement, s);
 		} else {
 			cfg.f_init.put(s, cfg.f_init.get(stmts.get(0)));
 			cfg.f_final.put(s, cfg.f_final.get(stmts.get(stmts.size()-1)));
@@ -263,7 +263,7 @@ class CFGVisitor extends WhileLangVisitor {
 		stmts = filterFunDec(stmts);
 
 		if (stmts.size() == 0) { 
-			log(WARN, NO_Statement, s);
+			Logger.warn(NO_Statement, s);
 		} else {
 			for(int i=0; i<stmts.size()-1; i++) {
 				Label s2 = cfg.f_init.get(stmts.get(i+1));

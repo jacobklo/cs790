@@ -30,7 +30,7 @@ abstract class Expression {
 		return node.toSource().hashCode();
 	}
 	public String toString() {
-		return node.toSource();
+		return node.toSource(); // + "\t\t\t\t\t<line: " + node.getLineno() + ">";
 	}
 }
 
@@ -43,6 +43,13 @@ abstract class Expression {
 
 class FunctionExpr extends Expression  {
 	/* Begin of variable addition */
+	private Variable self;
+	void setSelf(Variable self) { this.self = self; }
+	Variable getSelf() {
+		if (self == null) Logger.error("self is not resolved");
+		return self;
+	}
+	
 	private List<Variable> variables;
 	
 	void setParameterVariables(List<Variable> variables) {
@@ -78,6 +85,15 @@ class FunctionExpr extends Expression  {
 	
 	/* End of variable addition */
 	
+	/* Begin of a label for the function body */
+	Label_E body_label;
+	void setBodyLabel(Label_E ell) { this.body_label = ell; }
+	Label_E getBodyLabel() { 
+		if (body_label == null) Logger.error("The body label of function is not set");
+		return body_label; 
+	}
+	/* End of function body label */
+	
 	final String name;
     final List<String> parameters;
     final Statement body;
@@ -93,7 +109,7 @@ class FunctionExpr extends Expression  {
     
     public void accept(Visitor v) { v.visit(this); }
 }
-
+// e (e') where e = x | e1 e2 
 class FunctionCallExpr extends Expression {
 	final Expression target;
 	final List<Expression> arguments;
@@ -104,6 +120,20 @@ class FunctionCallExpr extends Expression {
 	 
 	public void accept(Visitor v) { v.visit(this); }
 }
+// e.f(e') or e[e_f] = e'
+class MethodCallExpr  extends Expression {
+	final Expression receiver;
+	final Expression selector;
+	final List<Expression> arguments;
+	MethodCallExpr (Expression receiver, Expression selector, List<Expression> arguments) {
+		this.receiver = receiver;
+		this.selector = selector;
+		this.arguments = arguments;
+	}
+	 
+	public void accept(Visitor v) { v.visit(this); }
+}
+
 
 class NewExpr extends FunctionCallExpr {
 	NewExpr(Expression target, List<Expression> arguments) {
@@ -113,11 +143,25 @@ class NewExpr extends FunctionCallExpr {
 	public void accept(Visitor v) { v.visit(this); }
 }
 
+// x = e'
 class AssignmentExpr extends Expression {
 	final Expression lValue, rValue;
 	AssignmentExpr (Expression lValue, Expression rValue) {
 		this.lValue = lValue;
 		this.rValue = rValue;
+	}
+	 
+	public void accept(Visitor v) { v.visit(this); }
+}
+
+// e.f = e' or e[e_f] = e'
+class UpdateExpr extends Expression {
+	final Expression lValue, rValue;
+	final Expression selector;
+	UpdateExpr (Expression lValue, Expression selector, Expression rValue) {
+		this.lValue = lValue;
+		this.rValue = rValue;
+		this.selector = selector;
 	}
 	 
 	public void accept(Visitor v) { v.visit(this); }
@@ -142,23 +186,44 @@ class VarAccessExpr extends Expression {
 		this.name = name;
 	}
 	 
-	public String toString() { return name; }
+//	public String toString() { return name; }
 	
 	public void accept(Visitor v) { v.visit(this); }
 }
 
-class GetPropExpr extends Expression {
+//  object field/method selector e.g. 'f' in {f: e} | e.f | e.f(e') | e.f = e'
+//  Rhino treat 'f' as just a Name and we treat Name object as VarAccess elsewhere
+class SelectorExpr extends Expression {
+	final String name;
+	 
+	SelectorExpr (String name) {
+		this.name = name;
+	}
+	 
+//	public String toString() { return name; }
+	
+	public void accept(Visitor v) { v.visit(this); }
+}
+
+interface GetExpr {
+	Expression getTarget();
+	Expression getProperty();
+}
+// e.f
+class GetPropExpr extends Expression implements GetExpr {
 	final Expression target;
-	final String property;
-	GetPropExpr(Expression target, String property) {
+	final SelectorExpr property;
+	GetPropExpr(Expression target, SelectorExpr property) {
 		this.target = target;
 		this.property = property;
 	}
 	 
 	public void accept(Visitor v) { v.visit(this); }
+	public Expression getTarget() { return target; }
+	public Expression getProperty() { return property; }
 }
-
-class GetElemExpr extends Expression {
+// e[e_f]
+class GetElemExpr extends Expression implements GetExpr {
 	final Expression target, element;
 	
 	GetElemExpr(Expression target, Expression element) {
@@ -167,6 +232,8 @@ class GetElemExpr extends Expression {
 	}
 	 
 	public void accept(Visitor v) { v.visit(this); }
+	public Expression getTarget() { return target; }
+	public Expression getProperty() { return element; }
 }
 
 
@@ -325,10 +392,10 @@ class ObjectExpr extends Expression {
 }
 
 class ObjProperty {
-	final Expression property, assignment; 
+	final Expression lhs, rhs; 
 	final boolean isGetter, isSetter;
-	ObjProperty (Expression property, Expression assignment, boolean isGetter, boolean isSetter) {
-		this.property = property; this.assignment = assignment; this.isGetter = isGetter; this.isSetter = isSetter; 
+	ObjProperty (Expression lhs, Expression rhs, boolean isGetter, boolean isSetter) {
+		this.lhs = lhs; this.rhs = rhs; this.isGetter = isGetter; this.isSetter = isSetter; 
 	}
 }
 

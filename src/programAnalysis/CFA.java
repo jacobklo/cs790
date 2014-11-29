@@ -41,22 +41,19 @@ abstract class AbstractCFA {
 			}
 		}
 	}
-	abstract String printCache(List<Label_E> labels);
+	abstract String printCache();
 	abstract String printEnv();
 	
 	String print() {
-		List<Label_E> labels = new ArrayList<Label_E>(lv.labelledExp.keySet());
-		Collections.sort(labels);
+		 
 		String out = "";
 		
 		out += "==== labelled expressions ====" + nl;
 		
-		for(Label_E l : labels) {
-			out += l + " : " + lv.labelledExp.get(l) + nl;
-		}
+		out += lv.print();
 		
 		out += "==== cache ====" + nl;
-		out += printCache(labels);
+		out += printCache();
 		
 		out += "==== env ====" + nl;
 		out += printEnv();
@@ -75,14 +72,31 @@ public class CFA extends AbstractCFA {
 		super(s);
 		
 		// generate set variables of expressions and variables, and their constraints
-		cv = new ConstraintVisitor(lv.functions);
+		cv = new ConstraintVisitor(lv.functions, lv.loc, lv.sel);
 		s.accept(cv);
 	 
 	}
 	
 	CSet<Constraint> getConstraints() { return cv.constraints; }
 	
-	String printCache(List<Label_E> labels) {
+	String print() {
+		String out = super.print();
+		
+		out += "==== exit heap ====" + nl;
+		List<Label_E> labels = new ArrayList<Label_E>(cv.cache.keySet());
+		Collections.sort(labels);
+		
+		for(Label_E label : labels) {
+			out += label + ": " + cv.state1.get(label) + nl;
+		}
+		
+		return out;
+	}
+	
+	String printCache() {
+		List<Label_E> labels = new ArrayList<Label_E>(cv.cache.keySet());
+		Collections.sort(labels);
+		
 		String out = "";
 		
 		for(Label_E l : labels) {
@@ -93,6 +107,9 @@ public class CFA extends AbstractCFA {
 	}
 	
 	String printEnv() {
+		List<Variable> labels = new ArrayList<Variable>(cv.env.keySet());
+		Collections.sort(labels);
+		
 		String out = "";
 		
 		for(Variable x : cv.env.keySet()) {
@@ -104,29 +121,31 @@ public class CFA extends AbstractCFA {
 }
 
 class SetVar {
-	CSet<Term> d = new CSet<Term>();
+	CSet<AbstractValue> d = new CSet<AbstractValue>();
 	List<Constraint> e = new ArrayList<Constraint>();
 	final String name; // used for debugging purpose
 	
 	SetVar(String name) {
 		this.name = name;
 	}
-	
+	boolean isEmpty() {
+		return d.isEmpty();
+	}
 	public String toString() { 
-		String ret = "";
+		String ret = "[";
 
 		int i = 0;
 		
-		for(Term t : d) {
+		for(AbstractValue t : d) {
 			ret += t;
 			i++;
 			if (i < d.size()) ret += ", ";
 		}
 		
-		return ret;
+		return ret + "]";
 	}
 	
-	boolean add(CSet<Term> d) {
+	boolean add(CSet<AbstractValue> d) {
 		boolean ret = false;
 		if (!this.d.containsAll(d)) {
 			this.d.addAll(d);
@@ -136,165 +155,34 @@ class SetVar {
 	}
 }
 
-class Term {
-	final FunctionExpr f;
-	
-	Term(FunctionExpr f) { this.f = f; }
-	public String toString() { return "" + f.label; }
-	public boolean equals(Object that) {
-		boolean ret = false;
-		if (that instanceof Term) {
-			Term t = (Term) that;
-			ret = f.equals(t.f);
-		}
-		return ret;
-	}
-	public int hashCode() { return f.hashCode(); }
-	
-	// A terrible hack to achieve reuse without adding too much type parameters.
-	ContextEnv getContextEnv() { 
-		Logger.error("This is not a closure object. Should not get context environment from a term object"); 
-		return null;
-	}
-}
 
-abstract class Constraint {
-	void add(SetVar q, CSet<Term> d, WorkList w) {
-		if (q.add(d)) {
-			w.push(q); // worklist is a stack
-		}
-	}
-	
-	abstract void build(WorkList w);
-	abstract void iter(WorkList w);
-}
-
-// {t} subseteq p
-class ConcreteConstraint extends Constraint {
-	final Term t;
-	final SetVar p;
-	
-	ConcreteConstraint(Term t, SetVar p) {
-		this.t = t; this.p = p;
-	}
-	
-	@Override
-	void build(WorkList w) {
-		add(p, new CSet<Term>(t), w);
-	}
-	@Override
-	void iter(WorkList w) {}
-	
-	public String toString() {
-		return t + " <= " + p.name;
-	}
-}
-
-// p1 subseteq p2
-class SubsetConstraint extends Constraint {
-	final SetVar p1, p2;
-
-	SubsetConstraint(SetVar p1, SetVar p2) {
-		this.p1 = p1; this.p2 = p2;
-	}
-	
-	@Override
-	void build(WorkList w) { 
-		p1.e.add(this);  
-		add(p2, p1.d, w);  // this is added so that constraints dynamically generated in K-CFA can be properly merged
-	}
-
-	@Override
-	void iter(WorkList w) { add(p2, p1.d, w); }
-	
-	public String toString() {
-		return p1.name + " <= " + p2.name;
-	}
-}
-
-// {t} subseteq p => p1 subseteq p2
-class ConditionalConstraint extends Constraint {
-	final Term t;
-	final SetVar p, p1, p2;
-	
-	ConditionalConstraint(Term t, SetVar p, SetVar p1, SetVar p2) {
-		this.t = t; this.p = p; this.p1 = p1; this.p2 = p2;
-	}
-	
-	@Override
-	void build(WorkList w) {
-		p.e.add(this);
-		p1.e.add(this);
-	}
-	@Override
-	void iter(WorkList w) {
-		if (p.d.contains(t)) {
-			add(p2, p1.d, w);
-		}
-	}
-	
-	public String toString() {
-		return "(" + t + " <= " + p.name + " ==> " + p1.name + ")" + " <= " + p2.name;
-	}
-}
-
-abstract class AbstractCache<V> {
-	Map<Label_E, V> map = new HashMap<Label_E, V>();
-	
-	abstract V makeSetVar(String name);
-	
-	V get(Label_E ell) {
-		V ret = map.get(ell);
-		if (ret == null) {
-			ret =  makeSetVar(ell.toString());
-			map.put(ell, ret);
-		}
-		return ret;
-	}
-}
-
-abstract class AbstractEnv<V> {
-	Map<Variable, V> map = new HashMap<Variable, V>();
-	 
-	abstract V makeSetVar(String name);
-	
-	V get(Variable x) {  
-		V ret = map.get(x);
-		if (ret == null) {
-			ret =  makeSetVar(x.toString());
-			map.put(x, ret);
-		}
-		return ret;
-	}
-	
-	Set<Variable> keySet() { return map.keySet(); }
-}
-
-
-class Cache extends AbstractCache<SetVar> {
-	SetVar makeSetVar(String name) { return new SetVar(name); }
-}
-class Environment extends AbstractEnv<SetVar> {
-	SetVar makeSetVar(String name) { return new SetVar(name); }
-}
 
 
 class ConstraintVisitor extends FunLangVisitor {
-	CSet<Constraint> constraints = new CSet<Constraint>();
-	Cache cache = new Cache();
-	Environment env = new Environment();
-	Set<FunctionExpr> functions; // get this from constructor
+	final CSet<Constraint> constraints = new CSet<Constraint>();
+	final Cache cache = new Cache();
+	final Environment env = new Environment();
+	final Set<FunctionExpr> functions; // get this from constructor
 	
+	// NEW: entry/exit heap for each label/expression
+	final CFA_State state0, state1;
+	// NEW: all locations (of new objects) and all selectors
+	final Set<Location> locations;
+	final Set<Selector> selectors;
+	// NEW: the exit heap of the previous expression
+	Heap current_heap;
 	
-	ConstraintVisitor(Set<FunctionExpr> functions) {
-		this.functions = functions;
+	ConstraintVisitor(Set<FunctionExpr> functions, Set<Location> locations, Set<Selector> selectors) {
+		this.functions = functions; this.locations = locations; this.selectors = selectors;
+		current_heap = new Heap(locations, selectors);
+		state0 = new CFA_State(locations, selectors); state1 = new CFA_State(locations, selectors);
 	}
 	
 	// e
 	public void visit(ExpressionStmt s) {  
 		s.expr.accept(this);
 	}
-	// var x = e or let x = e ...
+	// var x = e or let rec x = e 
 	public void visit(VarDecStmt s) {  
 		// assume there is initializer
 		if (s.hasInitializer()) {
@@ -314,51 +202,104 @@ class ConstraintVisitor extends FunLangVisitor {
 	}
 	// e (e')
 	public void visit(FunctionCallExpr e) { 
-		
-		SetVar c = cache.get(e.label);
+		// NEW: store the entry heap
+		state0.put(e.label, current_heap);
 		
 		e.target.accept(this);
-		SetVar c1 = cache.get(e.target.label);
 
+		List<SetVar> c_arguments = new ArrayList<SetVar>();
+		
 		for(Expression a : e.arguments) {
 			a.accept(this);
+			c_arguments.add(cache.get(a.label));
+		}
+		SetVar c_call_target = cache.get(e.target.label);
+
+		// delegate rest of the logic to this method
+		visitCall(e.label, c_arguments, c_call_target);
+	}
+
+	
+	// NEW: used by both function call and method call visitor
+	
+	private void visitCall(Label_E call_expr_label,  List<SetVar> c_arguments, SetVar c_call_target) {
+		// create a blank heap for the exit of the call expression
+		Heap exit_heap = state1.get(call_expr_label);
+		
+		SetVar c_call_expr = cache.get(call_expr_label);
+		
+		for(FunctionExpr f : functions) {
+			for(int i = 0; i < c_arguments.size() && i < f.getParameterVariables().size(); i++) {
+				SetVar r_parameter = env.get(f.getParameterVariables().get(i)); // this call will generate setvar on demand  
+				
+				SetVar c_argument = c_arguments.get(i);
+				constraints.add(new ConditionalConstraint(new Term(f), c_call_target, c_argument, r_parameter));
+			}
+			
+			Label_E ell_function_body = f.getBodyLabel();
+			Heap heap_function_entry = state0.get(ell_function_body);
+			SetVar c_function_body = cache.get(ell_function_body);
+			Heap heap_function_exit = state1.get(ell_function_body); 
+			Term t = new Term(f);
+			
+			// forall loc, sel: t in c_call_target => current_heap(loc, sel) <= heap_function_entry(loc, sel)
+			constraints.addAll(current_heap.getConditionalConstraints(t, c_call_target, heap_function_entry));
+			
+			// forall loc, sel: t in c_call_target => heap_function_exit(loc, sel) <= exit_heap(loc, sel)
+			constraints.addAll(heap_function_exit.getConditionalConstraints(t, c_call_target, exit_heap));
+			 
+			// t in c_call_target => c_function_body <= c_call_expr
+			constraints.add(new ConditionalConstraint(t, c_call_target, c_function_body, c_call_expr));
 		}
 		
-		for(FunctionExpr t : functions) {
-			for(int i = 0; i < e.arguments.size() && i < t.getParameterVariables().size(); i++) {
-				SetVar rx = env.get(t.getParameterVariables().get(i)); // this call will generate setvar on demand  
-				if (rx != null) {
-					SetVar c2 = cache.get(e.arguments.get(i).label);
-					constraints.add(new ConditionalConstraint(new Term(t), c1, c2, rx));
-				} 
-				// else throw an exception
-			}
-			for(Expression r : t.getReturnExpressions()) {
-				SetVar c0 = cache.get(r.label);
-				if (c0 != null)
-					constraints.add(new ConditionalConstraint(new Term(t), c1, c0, c));
-				// else throw an exception
-			}
-		}
-	
+		// update the current heap
+		current_heap = exit_heap;
 	}
+	
+	
 	// function(x) { s } or function f(x) { s } 
 	public void visit(FunctionExpr e) {
-		 
+		// NEW: store the entry heap
+		state0.put(e.label, current_heap);
+				
 		SetVar c = cache.get(e.label);
 		
 		constraints.add(new ConcreteConstraint(new Term(e), c));
 
 		// function f(x) { s }
-		// TODO check here, it said this is delay to the Call Constraint class
-		
 		if (e.name != null) {
 			constraints.add(new ConcreteConstraint(new Term(e), env.get(e.getFunctionNameVariable())));
 		}
+		
+		// NEW: set the curret heap to the entry heap of the function body
+		current_heap = state0.get(e.getBodyLabel());
+		
 		e.body.accept(this);
+		
+		// NEW: get exit heap of the function body
+		SetVar c_body = cache.get(e.getBodyLabel());
+		Heap heap = state1.get(e.getBodyLabel());
+		
+		for(Expression r : e.getReturnExpressions()) {
+			SetVar c0 = cache.get(r.label);
+			constraints.add(new SubsetConstraint(c0, c_body));
+			
+			// NEW: subset constraints: forall loc, sel. heap_return_expression(loc, sel) <= heap(loc, sel)
+			Heap heap_return_expression = state1.get(r.label); 
+			constraints.addAll(heap_return_expression.getSubsetConstraints(heap));
+		}
+	 	if (e.getReturnExpressions().size() == 0) 
+			Logger.error("We can't handle functions without return expressions", e);	
+		
+		// NEW: restore the current heap since the function body should not change the heap of the function expression
+		current_heap = state0.get(e.label);
+		state1.put(e.label, current_heap);
 	}
 	// if(b) then e else e'
 	public void visit(ConditionalExpr  e) { 
+		// NEW: store the entry heap
+		state0.put(e.label, current_heap);
+				
 		SetVar c = cache.get(e.label);
 		
 		e.condition.accept(this);
@@ -366,33 +307,167 @@ class ConstraintVisitor extends FunLangVisitor {
 		e.falsePart.accept(this);
 		constraints.add(new SubsetConstraint(cache.get(e.truePart.label), c));
 		constraints.add(new SubsetConstraint(cache.get(e.falsePart.label), c));
+		
+		// NEW: store the exit heap
+		state1.put(e.label, current_heap);
 	}
 	// x
 	public void visit(VarAccessExpr e) { 
+		// NEW: store the entry heap
+		state0.put(e.label, current_heap);
+				
 		SetVar c = cache.get(e.label);
 		SetVar rx = env.get(e.getVariable());
-		if (rx != null)
-			constraints.add(new SubsetConstraint(rx, c));
-		// else variable is not found, throw an exception
+	
+		constraints.add(new SubsetConstraint(rx, c));
+		
+		// NEW: store the exit heap
+		state1.put(e.label, current_heap);
 	}
-//	// c
-//	public void visit(NumberExpr e) {  }
-//	public void visit(BoolExpr e) {  }
 	
-//	// e op e'
-//	public void visit(AddExpr e) { visitInfix(e); }
-//	public void visit(NumericExpr e) { visitInfix(e); }
-//	public void visit(LogicExpr e) { visitInfix(e); }
-//	public void visit(ComparisonExpr e) { visitInfix(e); }
-//	// op e
-//	public void visit(NegationExpr e) { e.operand.accept(this); }
-//	public void visit(LogicNotExpr e) { e.operand.accept(this); }
+	// c
+	public void visit(NumberExpr e) { visitConstant(e); }
+	public void visit(BoolExpr e) { visitConstant(e); }
+	public void visit(StringExpr e) { visitConstant(e); }
+	public void visit(NullExpr e) { visitConstant(e); }
 	
+	// op e
+	void visitUnary(UnaryExpr e) {
+		// NEW: store the entry heap
+		state0.put(e.label, current_heap);
+		e.operand.accept(this);
+		
+		// NEW: store the exit heap
+		state1.put(e.label, current_heap);
+	}
+	// e op e'
 	void visitInfix(InfixExpr e) {
+		// NEW: store the entry heap
+		state0.put(e.label, current_heap);
+		
 		e.left.accept(this);
 		e.right.accept(this);
+		
+		// NEW: store the exit heap
+		state1.put(e.label, current_heap);
 	}
 	
+	private void visitConstant(Expression e) {
+		// NEW: store the entry/exit heap
+		state0.put(e.label, current_heap);
+		state1.put(e.label, current_heap);
+		
+		AbstractValue v;
+		if (e instanceof NullExpr) {
+			v = new NullValue();
+		} else {
+			v = new AbstractConstant(e.toString());
+		}
+		
+		constraints.add(new ConcreteConstraint(v, cache.get(e.label)));
+	}
 	
+	// NEW: { f_1 : e_1, f_2 : e_2, ... }
+	// f_i is either a selector, a string or number literal
+	public void visit(ObjectExpr e) { 
+		// store the entry heap
+		state0.put(e.label, current_heap);
+		
+		
+		// each property has the form lhs: rhs
+		// lhs can be a StringExpr, a NumberExpr, or a VarAccessExpr (but it is not a variable access - just a name)
+		for(ObjProperty p : e.properties) {
+			p.rhs.accept(this); 
+		}
+		
+		constraints.add(new ConcreteConstraint(new Location(e.label), cache.get(e.label)));
+		
+		// create an abstract object representing this object literal
+		AbstractObject obj = new AbstractObject(e.label.toString(), selectors);
+		
+		// C(l_e_i) <= obj(f_i)
+		for(ObjProperty p : e.properties) {
+			constraints.add(new SubsetConstraint(cache.get(p.rhs.label), obj.get(getSelector(p.lhs))));
+		}
+		// update current heap and set it as the exit heap of this expression
+		current_heap = current_heap.update(new Location(e.label), obj);
+		state1.put(e.label, current_heap);
+	}
+	
+	// this will fail if the sel is not a selector expression (e.g. string or number literal)
+	private Selector getSelector(Expression sel) {
+		if (! (sel instanceof SelectorExpr) ) 
+			Logger.error("selector " + sel + " of an object literal is not a symbol");
+		return new Selector(((SelectorExpr) sel).name);
+	}
+	
+	// NEW: e'.f 
+	public void visit(GetPropExpr e) {
+		// TODO: implement this method
+	}
+
+	// NEW: e'[e_f]
+	public void visit(GetElemExpr e) {
+		Logger.error("We don't consider element get yet");
+	}
+	
+	// NEW: x = e'  
+	public void visit(AssignmentExpr e) {
+		// store the entry heap
+		state0.put(e.label, current_heap);
+		
+		e.rValue.accept(this);
+		
+		SetVar c_e_prime = cache.get(e.rValue.label);
+		
+		if ( !(e.lValue instanceof VarAccessExpr) ) 
+			Logger.error("left hand side of an assignment is not a variable", e);
+		else {
+			Variable x = ((VarAccessExpr) e.lValue).getVariable();
+			SetVar r_x = env.get(x);
+			
+			// C(l_e') <= r(x)
+			constraints.add(new SubsetConstraint(c_e_prime, r_x));
+		}
+		
+		SetVar c_e = cache.get(e.label);
+		
+		// C(l_e') <= C(l_e)
+		constraints.add(new SubsetConstraint(c_e_prime, c_e));
+		
+		// store the exit heap
+		state1.put(e.label, current_heap);
+	}
+	
+	// NEW: e1.f = e2 
+	public void visit(UpdateExpr e) { 
+		// TODO: implement this method
+	}
+	
+	// NEW: e1.f(e2) 
+	public void visit(MethodCallExpr e) { 
+		// TODO: implement this method
+	}
+}
+
+
+class CFA_State  {
+	final Map<Label_E, Heap> map = new HashMap<Label_E, Heap>();
+	final Set<Location> locations;
+	final Set<Selector> selectors;
+	
+	CFA_State(Set<Location> locations, Set<Selector> selectors) {
+		this.locations = locations; this.selectors = selectors;
+	}
+	
+	Heap get(Label_E ell) { 
+		Heap ret = map.get(ell); 
+		if(ret == null) {
+			ret = new Heap(locations, selectors);
+			map.put(ell, ret);
+		}
+		return ret;
+	}
+	void put(Label_E ell, Heap heap) { map.put(ell, heap); }
 }
 
