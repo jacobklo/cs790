@@ -78,9 +78,37 @@ class CallConstraint extends Constraint {
 				Closure t = v.asClosure();
 				
 				if (!processedTerms.contains(t)) {
+					
 					processedTerms.add(t);
 
-					// Withhold for now ...
+					for(int i = 0; i < c2_list.size() && i < t.f.getParameterVariables().size(); i++) {
+						SetVar rx = env.get(t.f.getParameterVariables().get(i), delta_0); // this call will generate setvar on demand  
+
+						SetVar c2 = c2_list.get(i);
+						constraints.add(new SubsetConstraint(c2, rx));
+					}
+					for(Expression r : t.f.getReturnExpressions()) {
+						SetVar c0 = cache.get(r.label, delta_0);
+
+						constraints.add(new SubsetConstraint(c0, c));
+					}
+
+					// function f(x) { s }
+					if (t.f.hasName()) {
+						constraints.add(new ConcreteConstraint(t, env.get(t.f.getFunctionNameVariable(), delta_0)));
+					}
+
+					ContextEnv ce_0 = t.getContextEnv();
+					ContextEnv ce_0_prime = new ContextEnv(ce_0);
+					// ce_0' = ce_0[x -> delta_0]
+					for(Variable x : t.f.getParameterVariables()) ce_0_prime.put(x, delta_0);
+					// ce_0' = ce_0[f -> delta_0]
+					if (t.f.hasName()) ce_0_prime.put(t.f.getFunctionNameVariable(), delta_0);
+
+					K_ConstraintVisitor cv = new K_ConstraintVisitor(ce_0_prime, delta_0, cache, env, cachedCalls);
+					t.f.body.accept(cv);
+
+					constraints.addAll(cv.constraints);
 				}
 			}
 		}

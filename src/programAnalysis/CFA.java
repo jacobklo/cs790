@@ -183,6 +183,7 @@ class ConstraintVisitor extends FunLangVisitor {
 		s.expr.accept(this);
 	}
 	// var x = e or let rec x = e 
+	// tl∧C(l)⊆ρ(x)
 	public void visit(VarDecStmt s) {  
 		// assume there is initializer
 		if (s.hasInitializer()) {
@@ -404,6 +405,14 @@ class ConstraintVisitor extends FunLangVisitor {
 	// NEW: e'.f 
 	public void visit(GetPropExpr e) {
 		// TODO: implement this method
+		state0.put(e.label, current_heap);
+		SetVar c = cache.get(e.label);
+		
+		
+		for (cache.get(e.label))
+		constraints.add(new ConcreteConstraint(new Term(e), c));
+
+		
 	}
 
 	// NEW: e'[e_f]
@@ -442,11 +451,37 @@ class ConstraintVisitor extends FunLangVisitor {
 	// NEW: e1.f = e2 
 	public void visit(UpdateExpr e) { 
 		// TODO: implement this method
+		state0.put(e.label, current_heap);
+		SetVar c = cache.get(e.label);
+		
+		for ( SetVar sva : state0.get(e.label).get(loc, e.selector)) {
+			
+		}
 	}
 	
 	// NEW: e1.f(e2) 
 	public void visit(MethodCallExpr e) { 
 		// TODO: implement this method
+		
+		state0.put(e.label, current_heap);
+		SetVar c = cache.get(e.label);
+		
+		for (Expression ce : e.arguments) {
+			state0.put(ce.label, current_heap);
+			ce.accept(this);
+		}
+		
+		SetVar sv = cache.get(e.receiver.label);
+		Location loc = null;
+		
+		for ( Location l : state0.get(e.selector.label).locations){
+			loc = l;
+		}
+		for ( SetVar sva : state0.get(e.label).get(loc, e.selector)) {
+			
+		}
+		
+		visitCall(e.label,  List<SetVar> c_arguments, SetVar c_call_target)
 	}
 }
 
