@@ -247,6 +247,29 @@ public class AnalysisTest {
 	}
 	
 	@Test
+	public void test_Abstract_Interpreter() {
+		String f = "cfg/recursive2.js";
+		
+		Context context = Context.enter();
+		Parser parser = getParser(context);
+		 
+		try {
+			AstRoot ast = parseFromFile(projPath + f, parser);
+			Statement s = new StatementVisitor().visit(ast);
+			
+			AbstractInterpreter ai = new AbstractInterpreter(s);
+			 
+			System.out.println(ai.print());
+			
+		} catch(IOException e) {
+			System.out.println(e);
+		}
+		finally {
+			Context.exit(); // Exit from the context.
+		}
+	}
+	
+	@Test
 	public void test_0_CFA() {
 		String f = "cfg/obj.js";
 		

@@ -183,7 +183,6 @@ class ConstraintVisitor extends FunLangVisitor {
 		s.expr.accept(this);
 	}
 	// var x = e or let rec x = e 
-	// tl∧C(l)⊆ρ(x)
 	public void visit(VarDecStmt s) {  
 		// assume there is initializer
 		if (s.hasInitializer()) {
@@ -289,8 +288,8 @@ class ConstraintVisitor extends FunLangVisitor {
 			Heap heap_return_expression = state1.get(r.label); 
 			constraints.addAll(heap_return_expression.getSubsetConstraints(heap));
 		}
-	 	if (e.getReturnExpressions().size() == 0) 
-			Logger.error("We can't handle functions without return expressions", e);	
+		
+		// TODO: what if the function does not return anything?
 		
 		// NEW: restore the current heap since the function body should not change the heap of the function expression
 		current_heap = state0.get(e.label);
@@ -404,19 +403,27 @@ class ConstraintVisitor extends FunLangVisitor {
 	
 	// NEW: e'.f 
 	public void visit(GetPropExpr e) {
-		// TODO: implement this method
+		// store the entry heap
 		state0.put(e.label, current_heap);
+		
+		e.target.accept(this);
+		SetVar c_target = cache.get(e.target.label);
 		SetVar c = cache.get(e.label);
 		
+		for(Location loc : locations) {	
+			SetVar c_field = current_heap.get(loc, new Selector(e.property.name));
+			
+			// loc in c_target => Heap(loc)(f) <= c
+			constraints.add(new ConditionalConstraint(loc,  c_target,  c_field,  c));
+		}
 		
-		for (cache.get(e.label))
-		constraints.add(new ConcreteConstraint(new Term(e), c));
-
-		
+		// store the exit heap
+		state1.put(e.label, current_heap);
 	}
-
 	// NEW: e'[e_f]
 	public void visit(GetElemExpr e) {
+//		e.target.accept(this);
+//		e.element.accept(this);
 		Logger.error("We don't consider element get yet");
 	}
 	
@@ -425,6 +432,7 @@ class ConstraintVisitor extends FunLangVisitor {
 		// store the entry heap
 		state0.put(e.label, current_heap);
 		
+//		e.lValue.accept(this);
 		e.rValue.accept(this);
 		
 		SetVar c_e_prime = cache.get(e.rValue.label);
@@ -448,40 +456,81 @@ class ConstraintVisitor extends FunLangVisitor {
 		state1.put(e.label, current_heap);
 	}
 	
-	// NEW: e1.f = e2 
+	// NEW: e1.f = e2 or e1[e_f] = e2
 	public void visit(UpdateExpr e) { 
-		// TODO: implement this method
 		state0.put(e.label, current_heap);
-		SetVar c = cache.get(e.label);
 		
-		for ( SetVar sva : state0.get(e.label).get(loc, e.selector)) {
+		e.lValue.accept(this);
+//		e.selector.accept(this);
+		
+		Selector sel = getSelector(e.selector);
+		
+		e.rValue.accept(this);
+		
+		// NEW: clone the current heap but replace the 'sel' field of all objects with new set variables
+		Heap heap = current_heap.update(sel);
+		
+		SetVar c = cache.get(e.label);
+		SetVar c_e1 = cache.get(e.lValue.label);
+		SetVar c_e2 = cache.get(e.rValue.label);
+		
+		for(Location loc: locations) {
 			
+			SetVar c_field = heap.get(loc, sel);
+			
+			
+			// Sadly, this formulation cannot model destructive write to object field
+			
+			// current_heap(loc, f) <= heap(loc, f) 
+			constraints.add(new SubsetConstraint(current_heap.get(loc, sel), c_field));
+			// loc in C(l_e1) => C(l_e2) <= heap(loc, f)
+			constraints.add(new ConditionalConstraint(loc, c_e1, c_e2, c_field));
 		}
+		
+		// C(l_e2) <= C(l_e)
+		constraints.add(new SubsetConstraint(c_e2, c));
+		
+		// store the exit heap and update the current heap
+		state1.put(e.label, heap);
+		current_heap = heap;
 	}
 	
-	// NEW: e1.f(e2) 
+	// NEW: e1.f(e2) or e1[e_f](e2)
 	public void visit(MethodCallExpr e) { 
-		// TODO: implement this method
-		
+		// store the entry heap
 		state0.put(e.label, current_heap);
-		SetVar c = cache.get(e.label);
 		
-		for (Expression ce : e.arguments) {
-			state0.put(ce.label, current_heap);
-			ce.accept(this);
+		e.receiver.accept(this);
+		
+		// e.selector.accept(this);
+		Selector sel = getSelector(e.selector);
+		
+		List<SetVar> c_arguments = new ArrayList<SetVar>();
+		for(Expression a : e.arguments) {
+			a.accept(this);
+			c_arguments.add(cache.get(a.label));
 		}
 		
-		SetVar sv = cache.get(e.receiver.label);
-		Location loc = null;
+		// create an intermediate set variable to hold possible locations for the method: e1.f
+		SetVar c_call_target = new SetVar(e.label + " method ");
 		
-		for ( Location l : state0.get(e.selector.label).locations){
-			loc = l;
-		}
-		for ( SetVar sva : state0.get(e.label).get(loc, e.selector)) {
+		SetVar c_receiver = cache.get(e.receiver.label);
+		
+		for(Location loc : locations) {
 			
+			SetVar c_field = current_heap.get(loc, sel);
+			
+			// loc in c_receiver => Heap(loc)(f) <= c_call_target
+			constraints.add(new ConditionalConstraint(loc,  c_receiver,  c_field,  c_call_target));
 		}
 		
-		visitCall(e.label,  List<SetVar> c_arguments, SetVar c_call_target)
+		// pass receiver expression to the 'this' parameter of the called function
+		for(FunctionExpr t : functions) {
+			SetVar r_self = env.get(t.getSelf());
+			 
+			constraints.add(new ConditionalConstraint(new Term(t), c_call_target, c_receiver, r_self));
+		}
+		visitCall(e.label, c_arguments, c_call_target);
 	}
 }
 

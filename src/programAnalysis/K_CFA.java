@@ -78,7 +78,6 @@ class CallConstraint extends Constraint {
 				Closure t = v.asClosure();
 				
 				if (!processedTerms.contains(t)) {
-					
 					processedTerms.add(t);
 
 					for(int i = 0; i < c2_list.size() && i < t.f.getParameterVariables().size(); i++) {
@@ -99,7 +98,7 @@ class CallConstraint extends Constraint {
 					}
 
 					ContextEnv ce_0 = t.getContextEnv();
-					ContextEnv ce_0_prime = new ContextEnv(ce_0);
+					ContextEnv ce_0_prime = ce_0.clone();
 					// ce_0' = ce_0[x -> delta_0]
 					for(Variable x : t.f.getParameterVariables()) ce_0_prime.put(x, delta_0);
 					// ce_0' = ce_0[f -> delta_0]
@@ -135,8 +134,12 @@ class ContextEnv {
 	ContextEnv() {
 		map = new HashMap<Variable, K_Context>();
 	}
-	ContextEnv(ContextEnv that) {
-		map = new HashMap<Variable, K_Context>(that.map);
+	 
+	public ContextEnv clone() {
+		ContextEnv ret = new ContextEnv();
+		ret.map.putAll(map);
+		
+		return ret;
 	}
 	
 	ContextEnv trim(Set<Variable> fv) {

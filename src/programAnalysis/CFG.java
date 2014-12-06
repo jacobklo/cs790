@@ -213,6 +213,17 @@ class CSet<X> extends HashSet<X> {
 		this();
 		add(element);
 	}
+	
+	void set(X one) {
+		clear();
+		add(one);
+	}
+	
+	void set(CSet<X> set) {
+		clear();
+		addAll(set);
+	}
+	
 	CSet<X> union(CSet<X> set) { 
 		CSet<X> empty = new CSet<X>();
 		empty.addAll(this);
