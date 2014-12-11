@@ -40,7 +40,7 @@ public class AnalysisTest {
 	} 
 	
 	public static String projPath = "analysis/";
-	
+	/*
 	@Test
 	public void testCFG() {
  
@@ -245,10 +245,10 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	
+	*/
 	@Test
 	public void test_Abstract_Interpreter() {
-		String f = "cfg/recursive2.js";
+		String f = "cfg/twice.js";
 		
 		Context context = Context.enter();
 		Parser parser = getParser(context);
@@ -268,7 +268,7 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
-	
+	/*
 	@Test
 	public void test_0_CFA() {
 		String f = "cfg/obj.js";
@@ -318,4 +318,5 @@ public class AnalysisTest {
 			Context.exit(); // Exit from the context.
 		}
 	}
+	*/
 }

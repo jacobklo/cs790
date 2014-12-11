@@ -133,6 +133,43 @@ class AI_Visitor extends FunLangVisitor {
 	// e1 e2 where e1 = x | e e'
 	public void visit(FunctionCallExpr e) { 
 		// TODO: implement this method
+		for (Expression a : e.arguments) {
+			a.accept(this);
+			CSet<Closure> setSetOfClosureValue = cache.get(e.label, delta);
+			CSet<Closure> unionSetOfClosureResult = cache.get(e.label, delta).union(cache.get(a.label, delta));
+			setSetOfClosureValue.set(unionSetOfClosureResult);
+			
+		}
+		e.target.accept(this);
+		AI_State newState = new AI_State(e, ce, store, delta);
+		if (!seen.contains(newState)) {
+			seen.add(newState);
+			for (Closure c : cache.get(e.target.label, delta)) {
+				
+				K_Context xkc = new K_Context();
+				xkc.add(e.label);
+				
+				Variable bodyFuncVar = c.f.getSelf();
+				Binding bin = new Binding(bodyFuncVar, xkc);
+				
+				ContextEnv conEnvThatPassIn = new ContextEnv();
+				Store supStore = new Store();
+				
+				
+				AI_Visitor aiv = new AI_Visitor(seen,conEnvThatPassIn ,supStore, xkc, cache);
+				
+				Context_to_Closures ctc = new Context_to_Closures();
+				CSet<Closure> clo = ctc.makeValue("test");
+				c.f.body.accept(aiv);
+				
+				//supStore.put(bin, clo);
+				
+				//store.map.putAll(supStore.map);
+				//store.put(bin, vv);
+			}
+		}
+		
+		// cache.get(e.label, delta).set();
 	}
 	// function(x) { s } or function f(x) { s } 
 	public void visit(FunctionExpr e) { 
@@ -145,6 +182,7 @@ class AI_Visitor extends FunLangVisitor {
 		e.falsePart.accept(this); 
 		
 		cache.get(e.label, delta).set(cache.get(e.truePart.label, delta).union(cache.get(e.falsePart.label, delta)));
+		
 	}
 	// x
 	public void visit(VarAccessExpr e) { 
